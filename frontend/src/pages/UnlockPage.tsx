@@ -1,11 +1,11 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Ticket, MessagesSquare, Gift } from 'lucide-react';
 
 const UnlockPage = () => {
   const navigate = useNavigate();
   const sessionToken = localStorage.getItem('sessionToken');
-  const eventId = localStorage.getItem('eventId');
+  // eventId retrieved if needed
 
   useEffect(() => {
     // If somehow landed here without a session, boot them back to root

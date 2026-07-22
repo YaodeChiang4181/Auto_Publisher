@@ -1,4 +1,4 @@
-import React from 'react';
+// React 17+ does not need explicit React import
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import VenueScreen from './pages/VenueScreen';
 import ScanPage from './pages/ScanPage';

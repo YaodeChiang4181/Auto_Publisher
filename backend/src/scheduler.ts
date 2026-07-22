@@ -8,8 +8,7 @@ export function startScheduler() {
 
   const engine = new SyncEngine(new VieshowAdapter());
 
-  // 每 20 分鐘執行一次爬蟲同步
-  cron.schedule('*/20 * * * *', async () => {
+  const syncAll = async () => {
     console.log(`[Scheduler] Triggering crawler sync at ${new Date().toISOString()}`);
     try {
       await engine.syncVenues();
@@ -18,7 +17,13 @@ export function startScheduler() {
     } catch (err) {
       console.error(`[Scheduler] Sync failed:`, err);
     }
-  });
+  };
+
+  // 系統啟動時立即抓取第一次，避免冷啟動無資料
+  syncAll();
+
+  // 每 20 分鐘執行一次爬蟲同步
+  cron.schedule('*/20 * * * *', syncAll);
 
   console.log('[Scheduler] Cron job registered (Runs every 20 minutes).');
 }
