@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Venue {
+  id          String   @id @default(uuid())
+  name        String
+  geoLat      Float
+  geoLng      Float
+  geoRadius   Float    // in meters
+  externalId  String?  @unique // 泛用型外部對接 ID (非必填)
+  externalMeta Json?   // 泛用型外部對接擴充資料 (例如：儲存多個售票系統的 ID 映射)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  events      Event[]
+}
+
+model Event {
+  id           String          @id @default(uuid())
+  venueId      String
+  name         String
+  startTime    DateTime
+  unlockTime   DateTime
+  externalId   String?  @unique // 泛用型外部對接 ID (非必填)
+  externalMeta Json?    // 泛用型外部對接擴充資料
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  venue        Venue           @relation(fields: [venueId], references: [id])
+  pushContents PushContent[]
+  scanStats    EventScanStat?
+  sessions     Session[]
+}
+
+model PushContent {
+  id           String   @id @default(uuid())
+  eventId      String
+  title        String
+  contentUrl   String?
+  merchLink    String?
+  couponCode   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model EventScanStat {
+  id             String   @id @default(uuid())
+  eventId        String   @unique
+  totalScans     Int      @default(0)
+  verifiedScans  Int      @default(0)
+  lastScannedAt  DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id             String   @id @default(uuid())
+  eventId        String
+  browserToken   String   @unique // 去識別化的 browser cookie / PWA session ID
+  verifiedAt     DateTime @default(now())
+  isUnlocked     Boolean  @default(false)
+  pushSub        Json?    // 儲存 Web Push 訂閱物件 (endpoint, keys)
+  
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
