@@ -8,8 +8,11 @@ import { startScheduler } from './scheduler';
 
 const server = Fastify({ logger: true });
 
-// 產生測試用的 VAPID Keys (開發環境用)
-const vapidKeys = webpush.generateVAPIDKeys();
+// 讀取正式環境的 VAPID Keys，若無則生成測試用 Keys
+const vapidKeys = {
+  publicKey: process.env.VAPID_PUBLIC_KEY || webpush.generateVAPIDKeys().publicKey,
+  privateKey: process.env.VAPID_PRIVATE_KEY || webpush.generateVAPIDKeys().privateKey
+};
 webpush.setVapidDetails(
   'mailto:admin@autopublisher.local',
   vapidKeys.publicKey,
