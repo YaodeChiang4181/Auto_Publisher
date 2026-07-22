@@ -4,6 +4,7 @@ import { redis } from './redis';
 import crypto from 'crypto';
 import webpush from 'web-push';
 import Redis from 'ioredis';
+import { startScheduler } from './scheduler';
 
 const server = Fastify({ logger: true });
 
@@ -37,15 +38,14 @@ server.get('/api/qr/token', async (request, reply) => {
     return reply.status(400).send({ error: 'Missing eventId or venueId' });
   }
 
-  // Check if Event exists (Optional but recommended)
-  // For now we assume they exist to save DB calls, or we can validate them:
-  // const eventExists = await prisma.event.findUnique({
-  //   where: { id: eventId }
-  // });
-  //
-  // if (!eventExists) {
-  //   return reply.status(404).send({ error: 'Event not found' });
-  // }
+  // Check if Event exists (Strict validation for POC)
+  const eventExists = await prisma.event.findUnique({
+    where: { id: eventId }
+  });
+
+  if (!eventExists) {
+    return reply.status(404).send({ error: 'Event not found' });
+  }
 
   // Generate a short-lived token
   const token = crypto.randomBytes(16).toString('hex');
@@ -136,9 +136,23 @@ server.get('/api/session/status', async (request, reply) => {
   return { isUnlocked: session.isUnlocked };
 });
 
+// API: Fetch active events for frontend selection
+server.get('/api/events/active', async (request, reply) => {
+  // 撈取最新的前 20 筆事件，包含關聯的場館資訊
+  const events = await prisma.event.findMany({
+    where: { isActive: true },
+    include: { venue: true },
+    orderBy: { startTime: 'asc' },
+    take: 20
+  });
+  return events;
+});
+
 // Start the server
 const start = async () => {
   try {
+    // 啟動雲端常駐排程器
+    startScheduler();
     // 啟用 Redis 的過期事件通知 (Ex)
     await redis.config('SET', 'notify-keyspace-events', 'Ex');
 
