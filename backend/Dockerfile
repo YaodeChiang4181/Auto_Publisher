@@ -17,7 +17,9 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
 WORKDIR /usr/src/app
 
 COPY package*.json ./
-RUN npm install
+# Render 預設會在編譯時注入 NODE_ENV=production，這會略過 devDependencies (導致找不到 tsc 與 prisma)
+# 加上 --include=dev 強制安裝編譯所需套件
+RUN npm install --include=dev
 
 COPY . .
 
