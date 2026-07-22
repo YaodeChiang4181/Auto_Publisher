@@ -10,8 +10,8 @@ export class VieshowAdapter implements CrawlerProvider {
 
   private async setupPage(): Promise<{ browser: any, page: Page }> {
     const browser = await puppeteer.launch({
-      // For POC background running, headless is true
       headless: true, 
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();

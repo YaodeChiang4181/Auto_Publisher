@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: autopublisher-backend
+    env: docker
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    plan: free # Can be upgraded later
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # Please fill in your Neon Database URL in the Render Dashboard
+      - key: REDIS_URL
+        sync: false # Please fill in your Upstash Redis URL in the Render Dashboard
+      - key: VAPID_PUBLIC_KEY
+        sync: false # Please fill in your VAPID Public Key in the Render Dashboard
+      - key: VAPID_PRIVATE_KEY
+        sync: false # Please fill in your VAPID Private Key in the Render Dashboard
