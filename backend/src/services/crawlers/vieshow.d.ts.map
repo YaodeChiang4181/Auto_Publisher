@@ -1,1 +1,0 @@
-{"version":3,"file":"vieshow.d.ts","sourceRoot":"","sources":["vieshow.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,eAAe,EAAE,aAAa,EAAE,aAAa,EAAE,MAAM,SAAS,CAAC;AAKxE,qBAAa,cAAe,YAAW,eAAe;IACpD,IAAI,SAAa;IACjB,OAAO,CAAC,OAAO,CAAgC;YAEjC,SAAS;IAcjB,WAAW,IAAI,OAAO,CAAC,aAAa,EAAE,CAAC,CAwD5C;IAEK,WAAW,IAAI,OAAO,CAAC,aAAa,EAAE,CAAC,CAgE5C;CACF"}
