@@ -161,13 +161,13 @@ const start = async () => {
 
     // 訂閱過期事件
     redisSub.subscribe('__keyevent@0__:expired', (err) => {
-      if (err) server.log.error('Failed to subscribe to Redis expired events', err);
+      if (err) server.log.error(err, 'Failed to subscribe to Redis expired events');
     });
 
     // 處理「離場時間鎖」到期事件
     redisSub.on('message', async (channel, message) => {
       if (message.startsWith('session_timelock:')) {
-        const browserToken = message.split(':')[1];
+        const browserToken = message.split(':')[1] as string;
         server.log.info(`Time-Lock expired for session: ${browserToken}`);
 
         try {
@@ -180,7 +180,7 @@ const start = async () => {
           // 如果使用者有允許 Web Push，則發送推播通知
           if (session.pushSub) {
             await webpush.sendNotification(
-              session.pushSub as webpush.PushSubscription,
+              session.pushSub as unknown as webpush.PushSubscription,
               JSON.stringify({ 
                 title: '彩蛋已解鎖！', 
                 body: '您觀看的活動已結束，點擊查看專屬深度討論與彩蛋解析。',
@@ -190,7 +190,7 @@ const start = async () => {
             server.log.info(`Push notification sent to: ${browserToken}`);
           }
         } catch (err) {
-          server.log.error('Failed to handle time-lock expiration or send push', err);
+          server.log.error(err, 'Failed to handle time-lock expiration or send push');
         }
       }
     });
