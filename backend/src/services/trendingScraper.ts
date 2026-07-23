@@ -1,12 +1,14 @@
-import puppeteer from 'puppeteer';
 import { prisma } from '../prisma';
+import { fetchDcardPosts, ScrapedResult } from './scrapers/dcard';
+import { fetchPttPosts } from './scrapers/ptt';
+import { fetchGoogleResults } from './scrapers/google';
 
 export async function fetchTrendingForEvent(eventId: string, eventName: string) {
   // 1. Check Cache
   const cached = await prisma.trendingResult.findMany({
     where: { eventId },
     orderBy: { createdAt: 'desc' },
-    take: 3
+    take: 5
   });
 
   if (cached.length >= 3) {
@@ -18,66 +20,67 @@ export async function fetchTrendingForEvent(eventId: string, eventName: string) 
     }
   }
 
-  // 2. Scrape using Google Search targeted at Dcard/IG/FB
-  console.log(`[Scraper] Starting trending scrape for event: ${eventName}`);
-  const query = `"${eventName}" (site:dcard.tw OR site:instagram.com OR site:facebook.com OR 影評 OR 心得)`;
-  const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  console.log(`[Scraper Engine] Starting multi-source scrape for event: ${eventName}`);
+  
+  let combinedResults: ScrapedResult[] = [];
 
-  let browser;
+  // 2. 優先非同步並行執行高速 API 爬蟲 (Dcard + PTT)
   try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36');
-    await page.goto(url, { waitUntil: 'networkidle2' });
+    const [dcardResults, pttResults] = await Promise.all([
+      fetchDcardPosts(eventName),
+      fetchPttPosts(eventName)
+    ]);
+    
+    combinedResults = [...dcardResults, ...pttResults];
+    console.log(`[Scraper Engine] Fast Scrape found ${combinedResults.length} results (Dcard: ${dcardResults.length}, PTT: ${pttResults.length})`);
+  } catch (error) {
+    console.error(`[Scraper Engine] Fast Scrape failed:`, error);
+  }
 
-    // Extract top 3 results
-    const results = await page.evaluate(() => {
-      const items = Array.from(document.querySelectorAll('div.g')).slice(0, 3);
-      return items.map(item => {
-        const titleEl = item.querySelector('h3');
-        const linkEl = item.querySelector('a');
-        const snippetEl = item.querySelector('div[data-sncf] ~ div, div[style="-webkit-line-clamp:2"]');
-        
-        let platform = 'Web';
-        const urlStr = linkEl?.href || '';
-        if (urlStr.includes('dcard.tw')) platform = 'Dcard';
-        else if (urlStr.includes('instagram.com')) platform = 'IG';
-        else if (urlStr.includes('facebook.com')) platform = 'FB';
+  // 3. 備援策略：如果高速 API 抓不到足夠資料，啟動 Puppeteer 抓取 Google (IG/FB)
+  if (combinedResults.length < 3) {
+    try {
+      console.log(`[Scraper Engine] Fast Scrape results insufficient. Triggering Google fallback.`);
+      const googleResults = await fetchGoogleResults(eventName);
+      combinedResults = [...combinedResults, ...googleResults];
+    } catch (error) {
+      console.error(`[Scraper Engine] Google fallback failed:`, error);
+    }
+  }
 
-        return {
-          title: titleEl ? titleEl.textContent || '熱門討論' : '熱門討論',
-          url: urlStr,
-          snippet: snippetEl ? snippetEl.textContent || '點擊查看更多精彩解析與無雷心得。' : '點擊查看更多精彩解析與無雷心得。',
-          platform
-        };
-      }).filter(r => r.url !== '');
-    });
+  // 去除重複網址的結果
+  const uniqueUrls = new Set<string>();
+  const finalResults: ScrapedResult[] = [];
+  
+  for (const r of combinedResults) {
+    if (!uniqueUrls.has(r.url)) {
+      uniqueUrls.add(r.url);
+      finalResults.push(r);
+    }
+  }
 
-    console.log(`[Scraper] Found ${results.length} results for ${eventName}`);
+  // 取前三名 (可以後續加入更複雜的權重排序，例如 Dcard 愛心數)
+  const topResults = finalResults.slice(0, 3);
+  console.log(`[Scraper Engine] Finalized ${topResults.length} results for ${eventName}`);
 
-    // 3. Save to Cache
-    const savedResults = [];
-    for (const r of results) {
+  // 4. Save to Cache
+  const savedResults = [];
+  for (const r of topResults) {
+    try {
       const saved = await prisma.trendingResult.create({
         data: {
           eventId,
           platform: r.platform,
           title: r.title,
-          snippet: r.snippet.substring(0, 190), // Prisma snippet limit is probably 255 but let's be safe
+          snippet: r.snippet.substring(0, 190), // Prisma limit safe-guard
           url: r.url
         }
       });
       savedResults.push(saved);
+    } catch (dbError) {
+      console.error(`[Scraper Engine] DB save error:`, dbError);
     }
-
-    return savedResults.length > 0 ? savedResults : cached; // fallback to old cache if empty
-  } catch (error) {
-    console.error('[Scraper] Error scraping trending:', error);
-    return cached; // fallback to cache on error
-  } finally {
-    if (browser) await browser.close();
   }
+
+  return savedResults.length > 0 ? savedResults : cached; // fallback to old cache if all failed
 }

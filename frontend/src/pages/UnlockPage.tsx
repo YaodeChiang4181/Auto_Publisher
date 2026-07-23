@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, MessageCircle, Globe, MessagesSquare, Loader2 } from 'lucide-react';
+import { ExternalLink, MessageCircle, Globe, MessagesSquare, Loader2, LockKeyhole } from 'lucide-react';
 
 const UnlockPage = () => {
   const navigate = useNavigate();
-  const sessionToken = localStorage.getItem('sessionToken');
   const eventId = localStorage.getItem('eventId');
   
   const [loading, setLoading] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [content, setContent] = useState<{
     trending: any[],
     ads: { central: any[], venue: any[] }
@@ -17,7 +17,7 @@ const UnlockPage = () => {
   const [isCentralAd, setIsCentralAd] = useState(true);
 
   useEffect(() => {
-    if (!sessionToken || !eventId) {
+    if (!eventId) {
       navigate('/', { replace: true });
       return;
     }
@@ -25,10 +25,16 @@ const UnlockPage = () => {
     const fetchContent = async () => {
       try {
         const res = await fetch(`/api/unlock/content/${eventId}`);
-        if (res.ok) {
-          const data = await res.json();
-          setContent(data);
+        if (!res.ok) {
+          setErrorStatus(res.status);
+          if (res.status === 401) {
+            navigate('/', { replace: true });
+          }
+          return;
         }
+        
+        const data = await res.json();
+        setContent(data);
       } catch (e) {
         console.error('Failed to fetch unlock content', e);
       } finally {
@@ -37,7 +43,7 @@ const UnlockPage = () => {
     };
 
     fetchContent();
-  }, [sessionToken, eventId, navigate]);
+  }, [eventId, navigate]);
 
   // Ad rotation logic (every 10 seconds switch between central and venue ads)
   useEffect(() => {
@@ -89,6 +95,24 @@ const UnlockPage = () => {
       <div className="flex-center" style={{ flexDirection: 'column', height: '80vh' }}>
         <Loader2 size={48} color="var(--accent-primary)" style={{ animation: 'spin 1.5s linear infinite', marginBottom: '2rem' }} />
         <h2 style={{ color: 'white' }}>正在為您搜集全網最新深度解析...</h2>
+      </div>
+    );
+  }
+
+  if (errorStatus === 403) {
+    return (
+      <div className="flex-center" style={{ flexDirection: 'column', height: '80vh', textAlign: 'center', padding: '2rem' }}>
+        <LockKeyhole size={64} color="#f87171" style={{ marginBottom: '1.5rem' }} />
+        <h2 style={{ color: '#f87171', marginBottom: '1rem' }}>活動尚未結束</h2>
+        <p className="text-muted" style={{ marginBottom: '2rem' }}>
+          基於防暴雷機制，彩蛋內容目前被時間鎖保護中。
+        </p>
+        <button 
+          className="btn-primary"
+          onClick={() => navigate('/wait', { replace: true })}
+        >
+          返回候車室
+        </button>
       </div>
     );
   }

@@ -2,6 +2,10 @@ import { FastifyInstance } from 'fastify';
 import { prisma } from '../prisma';
 import bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { pipeline } from 'stream/promises';
 const { authenticator } = require('otplib');
 
 export default async function adminRoutes(server: FastifyInstance) {
@@ -59,7 +63,7 @@ export default async function adminRoutes(server: FastifyInstance) {
       return { requires2FA: true, tempToken };
     }
 
-    // 發行 24小時 的 JWT Token (滿足每24小時要求重新登入驗證的設計)
+    // 發行 24小時 的 JWT Token
     const token = server.jwt.sign({ 
       id: user.id, 
       username: user.username, 
@@ -67,7 +71,14 @@ export default async function adminRoutes(server: FastifyInstance) {
       venueId: user.venueId 
     }, { expiresIn: '24h' });
 
-    return { token, user: { id: user.id, username: user.username, role: user.role, venueId: user.venueId } };
+    reply.setCookie('adminToken', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/'
+    });
+
+    return { user: { id: user.id, username: user.username, role: user.role, venueId: user.venueId } };
   });
 
   // 驗證 2FA API
@@ -103,10 +114,23 @@ export default async function adminRoutes(server: FastifyInstance) {
         venueId: user.venueId 
       }, { expiresIn: '24h' });
 
-      return { token: finalToken, user: { id: user.id, username: user.username, role: user.role, venueId: user.venueId } };
+      reply.setCookie('adminToken', finalToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/'
+      });
+
+      return { user: { id: user.id, username: user.username, role: user.role, venueId: user.venueId } };
     } catch (e) {
       return reply.status(401).send({ error: 'Session expired or invalid' });
     }
+  });
+
+  // 登出 API
+  server.post('/logout', async (_request, reply) => {
+    reply.clearCookie('adminToken', { path: '/' });
+    return { success: true };
   });
 
   // 產出 2FA 綁定 QR Code
@@ -193,5 +217,119 @@ export default async function adminRoutes(server: FastifyInstance) {
       orderBy: { startTime: 'asc' }
     });
     return events;
+  });
+
+  // 取得目前場館的動態廣告
+  server.get('/ads', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const user = request.user as any;
+    if (!user.venueId && user.role !== 'SUPER_ADMIN') {
+      return reply.status(403).send({ error: 'Not associated with a venue' });
+    }
+
+    const whereClause = user.role === 'SUPER_ADMIN' ? {} : { venueId: user.venueId };
+    const ads = await prisma.advertisement.findMany({
+      where: whereClause,
+      orderBy: { createdAt: 'desc' }
+    });
+    return ads;
+  });
+
+  // 新增動態廣告 (處理 multipart/form-data)
+  server.post('/ads', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const user = request.user as any;
+    if (!user.venueId) return reply.status(403).send({ error: 'Not associated with a venue' });
+
+    const parts = request.parts();
+    let title = '';
+    let description = '';
+    let linkUrl = '';
+    let imageFilename = '';
+
+    for await (const part of parts) {
+      if (part.type === 'file') {
+        const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowedMimes.includes(part.mimetype)) {
+          return reply.status(400).send({ error: '不支援的檔案格式，請上傳 JPG, PNG, WEBP 或 GIF' });
+        }
+        
+        // 使用 UUID 重新命名，防禦 Path Traversal 與 RCE
+        const ext = path.extname(part.filename).toLowerCase();
+        // 確保附檔名在白名單內 (防禦偽造 MIME)
+        const safeExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+        if (!safeExts.includes(ext)) {
+          return reply.status(400).send({ error: '副檔名異常' });
+        }
+
+        imageFilename = crypto.randomUUID() + ext;
+        const uploadDir = path.join(__dirname, '../../uploads/ads');
+        const savePath = path.join(uploadDir, imageFilename);
+        
+        // 確保目錄存在 (防呆)
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        await pipeline(part.file, fs.createWriteStream(savePath));
+      } else {
+        if (part.fieldname === 'title') title = part.value as string;
+        if (part.fieldname === 'description') description = part.value as string;
+        if (part.fieldname === 'linkUrl') linkUrl = part.value as string;
+      }
+    }
+
+    if (!title || !linkUrl) {
+      return reply.status(400).send({ error: '標題與連結為必填欄位' });
+    }
+
+    // 驗證 URL 格式 (防禦 XSS via URL)
+    try {
+      const urlObj = new URL(linkUrl);
+      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+        return reply.status(400).send({ error: '僅支援 HTTP 或 HTTPS 連結' });
+      }
+    } catch (e) {
+      return reply.status(400).send({ error: '無效的連結格式' });
+    }
+
+    const imageUrl = imageFilename ? `/uploads/ads/${imageFilename}` : null;
+
+    const ad = await prisma.advertisement.create({
+      data: {
+        title,
+        description,
+        linkUrl,
+        imageUrl,
+        type: 'VENUE',
+        venueId: user.venueId
+      }
+    });
+
+    return ad;
+  });
+
+  // 刪除動態廣告 (需檢查權限)
+  server.delete('/ads/:id', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const user = request.user as any;
+    const { id } = request.params as { id: string };
+
+    const ad = await prisma.advertisement.findUnique({ where: { id } });
+    if (!ad) return reply.status(404).send({ error: 'Advertisement not found' });
+
+    // IDOR 防禦：只能刪除自己的場館廣告，或由 SUPER_ADMIN 刪除
+    if (ad.venueId !== user.venueId && user.role !== 'SUPER_ADMIN') {
+      return reply.status(403).send({ error: 'Permission denied' });
+    }
+
+    // 實體刪除圖片檔案
+    if (ad.imageUrl && ad.imageUrl.startsWith('/uploads/ads/')) {
+      const filename = ad.imageUrl.replace('/uploads/ads/', '');
+      const filepath = path.join(__dirname, '../../uploads/ads', filename);
+      if (fs.existsSync(filepath)) {
+        fs.unlinkSync(filepath);
+      }
+    }
+
+    await prisma.advertisement.delete({ where: { id } });
+    return { success: true };
   });
 }

@@ -38,8 +38,7 @@ const AdminLogin = () => {
         return;
       }
 
-      // 儲存 Token
-      localStorage.setItem('adminToken', data.token);
+      // 儲存 使用者資訊 (Token 已由後端透過 HttpOnly Cookie 寫入)
       localStorage.setItem('adminUser', JSON.stringify(data.user));
       
       navigate('/admin/dashboard');
@@ -68,8 +67,7 @@ const AdminLogin = () => {
         throw new Error(data.error || '2FA Verification failed');
       }
 
-      // 儲存 Token
-      localStorage.setItem('adminToken', data.token);
+      // 儲存 使用者資訊 (Token 已由後端透過 HttpOnly Cookie 寫入)
       localStorage.setItem('adminUser', JSON.stringify(data.user));
       
       navigate('/admin/dashboard');

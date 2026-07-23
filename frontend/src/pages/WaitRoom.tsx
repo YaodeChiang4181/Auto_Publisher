@@ -6,10 +6,10 @@ const WaitRoom = () => {
   const navigate = useNavigate();
   const [pushStatus, setPushStatus] = useState<'prompt' | 'granted' | 'denied'>('prompt');
   const [timeLeft, setTimeLeft] = useState(15); // dummy countdown for visual
-  const sessionToken = localStorage.getItem('sessionToken');
+  const eventId = localStorage.getItem('eventId');
 
   useEffect(() => {
-    if (!sessionToken) {
+    if (!eventId) {
       navigate('/', { replace: true });
       return;
     }
@@ -17,7 +17,7 @@ const WaitRoom = () => {
     // Polling fallback
     const pollInterval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/session/status?browserToken=${sessionToken}`);
+        const res = await fetch(`/api/session/status`);
         const data = await res.json();
         if (data.isUnlocked) {
           clearInterval(pollInterval);
@@ -29,7 +29,7 @@ const WaitRoom = () => {
     }, 3000);
 
     return () => clearInterval(pollInterval);
-  }, [navigate, sessionToken]);
+  }, [navigate, eventId]);
 
   // Visual countdown
   useEffect(() => {
@@ -59,7 +59,7 @@ const WaitRoom = () => {
         await fetch('/api/push/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ browserToken: sessionToken, subscription })
+          body: JSON.stringify({ subscription })
         });
       } else {
         setPushStatus('denied');

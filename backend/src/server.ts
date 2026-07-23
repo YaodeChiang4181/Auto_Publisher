@@ -7,6 +7,10 @@ import Redis from 'ioredis';
 import { startScheduler } from './scheduler';
 import fastifyJwt from '@fastify/jwt';
 import fastifyRateLimit from '@fastify/rate-limit';
+import fastifyCookie from '@fastify/cookie';
+import fastifyMultipart from '@fastify/multipart';
+import fastifyStatic from '@fastify/static';
+import path from 'path';
 import adminRoutes from './routes/admin';
 import unlockRoutes from './routes/unlock';
 
@@ -40,6 +44,25 @@ server.register(fastifyRateLimit, {
   timeWindow: '1 minute'
 });
 
+// Register Cookie
+server.register(fastifyCookie, {
+  secret: process.env.COOKIE_SECRET || 'my-cookie-secret',
+  hook: 'onRequest'
+});
+
+// Register Multipart (for file uploads)
+server.register(fastifyMultipart, {
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  }
+});
+
+// Register Static for serving uploaded ads
+server.register(fastifyStatic, {
+  root: path.join(__dirname, '../uploads'),
+  prefix: '/uploads/',
+});
+
 // Helper: Haversine distance formula
 function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371e3;
@@ -58,9 +81,12 @@ function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: num
 // Add authenticate decorator
 server.decorate('authenticate', async function (request: any, reply: any) {
   try {
-    await request.jwtVerify();
+    const token = request.cookies.adminToken;
+    if (!token) throw new Error('Missing adminToken cookie');
+    const decoded = server.jwt.verify(token);
+    request.user = decoded;
   } catch (err) {
-    reply.send(err);
+    reply.status(401).send({ error: 'Unauthorized' });
   }
 });
 
@@ -191,20 +217,28 @@ server.get('/api/qr/scan', async (request, reply) => {
   // After successful scan, we might also want to invalidate the QR token immediately (Single-use)
   await redis.del(`qr_token:${token}`);
 
+  // Set sessionToken as HttpOnly Cookie
+  reply.setCookie('sessionToken', browserToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/'
+  });
+
   return {
     success: true,
     message: 'Verification successful. Welcome to the event!',
-    sessionToken: browserToken,
     eventId
   };
 });
 
 // API: Subscribe to Web Push
 server.post('/api/push/subscribe', async (request, reply) => {
-  const { browserToken, subscription } = request.body as { browserToken: string, subscription: any };
+  const { subscription } = request.body as { subscription: any };
+  const browserToken = request.cookies.sessionToken;
 
   if (!browserToken || !subscription) {
-    return reply.status(400).send({ error: 'Missing browserToken or subscription' });
+    return reply.status(400).send({ error: 'Missing session cookie or subscription' });
   }
 
   // 將訂閱資訊存入 Session
@@ -218,8 +252,8 @@ server.post('/api/push/subscribe', async (request, reply) => {
 
 // API: Polling fallback for unlock status
 server.get('/api/session/status', async (request, reply) => {
-  const { browserToken } = request.query as { browserToken?: string };
-  if (!browserToken) return reply.status(400).send({ error: 'Missing browserToken' });
+  const browserToken = request.cookies.sessionToken;
+  if (!browserToken) return reply.status(401).send({ error: 'Missing session cookie' });
 
   const session = await prisma.session.findUnique({ where: { browserToken } });
   if (!session) return reply.status(404).send({ error: 'Session not found' });

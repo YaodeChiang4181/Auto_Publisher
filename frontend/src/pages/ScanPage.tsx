@@ -31,8 +31,7 @@ const ScanPage = () => {
           throw new Error(data.error || '驗證失敗');
         }
 
-        // Store session token securely
-        localStorage.setItem('sessionToken', data.sessionToken);
+        // Store eventId in localStorage, sessionToken is now in HttpOnly Cookie
         localStorage.setItem('eventId', data.eventId);
 
         setStatus('success');
