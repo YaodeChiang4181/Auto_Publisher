@@ -334,4 +334,55 @@ export default async function adminRoutes(server: FastifyInstance) {
     await prisma.advertisement.delete({ where: { id } });
     return { success: true };
   });
+
+  // 新增常用座標記憶庫 (上限 5 筆)
+  server.post('/saved-locations', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const userContext = request.user as any;
+    const { name, lat, lng } = request.body as any;
+
+    if (!name || lat === undefined || lng === undefined) {
+      return reply.status(400).send({ error: 'Missing name, lat, or lng' });
+    }
+
+    const user = await prisma.adminUser.findUnique({ where: { id: userContext.id } });
+    if (!user) return reply.status(404).send({ error: 'User not found' });
+
+    let locations = (user.savedLocations as any[]) || [];
+    if (locations.length >= 5) {
+      return reply.status(400).send({ error: '常用位置最多只能儲存 5 筆' });
+    }
+
+    locations.push({ name, lat: parseFloat(lat), lng: parseFloat(lng) });
+
+    await prisma.adminUser.update({
+      where: { id: user.id },
+      data: { savedLocations: locations }
+    });
+
+    return { success: true, savedLocations: locations };
+  });
+
+  // 刪除常用座標記憶庫
+  server.delete('/saved-locations/:index', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const userContext = request.user as any;
+    const { index } = request.params as { index: string };
+    const idx = parseInt(index, 10);
+
+    const user = await prisma.adminUser.findUnique({ where: { id: userContext.id } });
+    if (!user) return reply.status(404).send({ error: 'User not found' });
+
+    let locations = (user.savedLocations as any[]) || [];
+    if (idx < 0 || idx >= locations.length) {
+      return reply.status(400).send({ error: '無效的索引' });
+    }
+
+    locations.splice(idx, 1);
+
+    await prisma.adminUser.update({
+      where: { id: user.id },
+      data: { savedLocations: locations }
+    });
+
+    return { success: true, savedLocations: locations };
+  });
 }

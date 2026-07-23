@@ -88,6 +88,7 @@ model AdminUser {
   twoFactorSecret    String?
   isTwoFactorEnabled Boolean  @default(false)
   venueId            String?  // 如果是超級管理員可能為空
+  savedLocations     Json?    // 常用座標記憶庫，儲存格式：[{ name: string, lat: number, lng: number }]
   createdAt          DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

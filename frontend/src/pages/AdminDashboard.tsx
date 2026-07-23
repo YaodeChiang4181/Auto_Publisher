@@ -109,6 +109,67 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleGetGeolocation = () => {
+    if (!navigator.geolocation) {
+      alert('您的瀏覽器不支援地理位置功能');
+      return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setGeoLat(position.coords.latitude.toFixed(6));
+        setGeoLng(position.coords.longitude.toFixed(6));
+      },
+      (error) => {
+        console.error(error);
+        alert('無法取得您的位置，請確認是否已授權瀏覽器存取位置資訊。');
+      },
+      { enableHighAccuracy: true }
+    );
+  };
+
+  const handleSaveLocation = async () => {
+    if (!geoLat || !geoLng) {
+      alert('請先填寫經緯度（或使用抓取功能），才能儲存！');
+      return;
+    }
+    const locations = user?.savedLocations || [];
+    if (locations.length >= 5) {
+      alert('常用位置最多只能儲存 5 筆，請先刪除舊的再儲存！');
+      return;
+    }
+
+    const name = prompt('請為這個常用位置命名（例如：松菸文創）：');
+    if (!name) return;
+
+    try {
+      const res = await fetch('/api/admin/saved-locations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, lat: geoLat, lng: geoLng })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save');
+      
+      setUser({ ...user, savedLocations: data.savedLocations });
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  const handleDeleteLocation = async (index: number) => {
+    if (!confirm('確定要刪除這個常用位置嗎？')) return;
+    try {
+      const res = await fetch(`/api/admin/saved-locations/${index}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete');
+      
+      setUser({ ...user, savedLocations: data.savedLocations });
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
   const handleGenerate2FA = async () => {
     try {
       const res = await fetch('/api/admin/2fa/generate', {
@@ -249,7 +310,7 @@ const AdminDashboard = () => {
             Set the geographical boundaries for this venue. Users scanning QR codes outside this radius will be marked as unverified.
           </p>
           <form onSubmit={handleUpdateVenue} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Latitude</label>
                 <input type="text" value={geoLat} onChange={e => setGeoLat(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
@@ -258,15 +319,53 @@ const AdminDashboard = () => {
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Longitude</label>
                 <input type="text" value={geoLng} onChange={e => setGeoLng(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
               </div>
+              <button type="button" onClick={handleGetGeolocation} style={{ padding: '0.5rem 1rem', background: 'rgba(0,163,255,0.2)', color: 'var(--accent-primary)', border: '1px solid var(--accent-primary)', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }} title="自動定位目前裝置">
+                📍 抓取目前位置
+              </button>
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Radius (Kilometers)</label>
               <input type="number" step="0.1" value={geoRadiusKm} onChange={e => setGeoRadiusKm(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
             </div>
-            <button type="submit" disabled={isUpdatingVenue} style={{ marginTop: '0.5rem', padding: '0.6rem', background: 'var(--accent-secondary)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-              {isUpdatingVenue ? 'Updating...' : 'Save Location Settings'}
-            </button>
+            
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+              <button type="submit" disabled={isUpdatingVenue} style={{ flex: 2, padding: '0.6rem', background: 'var(--accent-secondary)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                {isUpdatingVenue ? 'Updating...' : 'Save Location Settings'}
+              </button>
+              <button type="button" onClick={handleSaveLocation} style={{ flex: 1, padding: '0.6rem', background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '4px', cursor: 'pointer' }}>
+                💾 儲存為常用
+              </button>
+            </div>
           </form>
+
+          {/* Saved Locations Memory Bank */}
+          {(user?.savedLocations && user.savedLocations.length > 0) && (
+            <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              <h3 style={{ fontSize: '1rem', color: 'white', marginBottom: '1rem' }}>🔖 常用位置記憶庫 ({user.savedLocations.length}/5)</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                {user.savedLocations.map((loc: any, idx: number) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0.6rem 1rem', borderRadius: '8px' }}>
+                    <div 
+                      style={{ cursor: 'pointer', flex: 1 }}
+                      onClick={() => {
+                        setGeoLat(loc.lat.toString());
+                        setGeoLng(loc.lng.toString());
+                      }}
+                      title="點擊帶入此座標"
+                    >
+                      <strong style={{ color: 'var(--accent-primary)', display: 'block', marginBottom: '0.2rem' }}>{loc.name}</strong>
+                      <span className="text-muted" style={{ fontSize: '0.8rem' }}>{loc.lat}, {loc.lng}</span>
+                    </div>
+                    <button 
+                      onClick={() => handleDeleteLocation(idx)}
+                      style={{ background: 'transparent', border: 'none', color: '#ff6b6b', cursor: 'pointer', fontSize: '1.2rem', padding: '0.5rem' }}
+                      title="刪除"
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Security Settings */}
