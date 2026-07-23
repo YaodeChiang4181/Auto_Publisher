@@ -19,10 +19,10 @@ export function startScheduler() {
   };
 
   // 系統啟動時立即抓取第一次，避免冷啟動無資料
-  syncAll();
+  // syncAll();
 
   // 每 20 分鐘執行一次爬蟲同步
-  cron.schedule('*/20 * * * *', syncAll);
+  // cron.schedule('*/20 * * * *', syncAll);
 
-  console.log('[Scheduler] Cron job registered (Runs every 20 minutes).');
+  console.log('[Scheduler] Cron job disabled (Manual mode only).');
 }
