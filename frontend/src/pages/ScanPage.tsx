@@ -69,9 +69,9 @@ const ScanPage = () => {
           <XCircle size={80} color="#f87171" />
           <h2 style={{ marginTop: '1.5rem', color: '#f87171' }}>驗證失敗</h2>
           <p className="text-muted" style={{ marginTop: '0.5rem' }}>{errMsg}</p>
-          <button className="btn-primary" style={{ marginTop: '2rem' }} onClick={() => navigate('/')}>
-            返回首頁
-          </button>
+          <p style={{ marginTop: '2rem', color: '#fff', fontSize: '1.1rem' }}>
+            請重新掃描螢幕上的最新 QR Code
+          </p>
         </>
       )}
       <style>{`
