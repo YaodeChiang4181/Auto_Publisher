@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, Instagram, Facebook, MessagesSquare, Loader2 } from 'lucide-react';
+import { ExternalLink, MessageCircle, Globe, MessagesSquare, Loader2 } from 'lucide-react';
 
 const UnlockPage = () => {
   const navigate = useNavigate();
@@ -68,8 +68,8 @@ const UnlockPage = () => {
 
   const getPlatformIcon = (platform: string) => {
     switch (platform) {
-      case 'IG': return <Instagram size={28} color="#E1306C" />;
-      case 'FB': return <Facebook size={28} color="#1877F2" />;
+      case 'IG': return <MessageCircle size={28} color="#E1306C" />;
+      case 'FB': return <Globe size={28} color="#1877F2" />;
       case 'Dcard': return <div style={{ background: '#006AA6', color: 'white', fontWeight: 'bold', padding: '4px 8px', borderRadius: '4px', fontSize: '12px' }}>D</div>;
       default: return <MessagesSquare size={28} color="var(--accent-secondary)" />;
     }
