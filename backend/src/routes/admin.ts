@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { pipeline } from 'stream/promises';
-const { authenticator } = require('otplib');
+const twofactor = require('node-2fa');
 
 export default async function adminRoutes(server: FastifyInstance) {
   // 建立初始帳號 (緊急/測試用)
@@ -101,8 +101,8 @@ export default async function adminRoutes(server: FastifyInstance) {
         return reply.status(400).send({ error: '2FA is not properly set up' });
       }
 
-      const isValid = authenticator.check(token, user.twoFactorSecret);
-      if (!isValid) {
+      const verifyResult = twofactor.verifyToken(user.twoFactorSecret, token);
+      if (!verifyResult || verifyResult.delta !== 0) {
         return reply.status(401).send({ error: 'Invalid 2FA code' });
       }
 
@@ -142,9 +142,8 @@ export default async function adminRoutes(server: FastifyInstance) {
       return reply.status(400).send({ error: '2FA is already enabled' });
     }
 
-    const secret = authenticator.generateSecret();
-    const otpauth = authenticator.keyuri(user.username, 'AutoPublisher', secret);
-    const qrCodeUrl = await QRCode.toDataURL(otpauth);
+    const { secret, uri } = twofactor.generateSecret({ name: 'AutoPublisher', account: user.username });
+    const qrCodeUrl = await QRCode.toDataURL(uri);
 
     // 將 secret 暫時存回資料庫，但不啟用
     await prisma.adminUser.update({
@@ -163,8 +162,10 @@ export default async function adminRoutes(server: FastifyInstance) {
     const user = await prisma.adminUser.findUnique({ where: { id: userContext.id } });
     if (!user || !user.twoFactorSecret) return reply.status(400).send({ error: 'Setup 2FA first' });
 
-    const isValid = authenticator.check(token, user.twoFactorSecret);
-    if (!isValid) return reply.status(400).send({ error: 'Invalid 2FA code' });
+    const verifyResult = twofactor.verifyToken(user.twoFactorSecret, token);
+    if (!verifyResult || verifyResult.delta !== 0) {
+      return reply.status(400).send({ error: 'Invalid 2FA code' });
+    }
 
     await prisma.adminUser.update({
       where: { id: user.id },
