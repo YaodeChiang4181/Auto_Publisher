@@ -6,7 +6,10 @@ import webpush from 'web-push';
 import Redis from 'ioredis';
 import { startScheduler } from './scheduler';
 import fastifyJwt from '@fastify/jwt';
+import authRoutes from './routes/auth';
 import adminRoutes from './routes/admin';
+import pushRoutes from './routes/push';
+import unlockRoutes from './routes/unlock';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -67,6 +70,7 @@ server.get('/health', async (request, reply) => {
 
 // 註冊 Admin API 路由
 server.register(adminRoutes, { prefix: '/api/admin' });
+server.register(unlockRoutes, { prefix: '/api/unlock' });
 
 // API: Generate Dynamic QR Code Token
 // Request expects: ?eventId=xxx&venueId=yyy

@@ -20,6 +20,7 @@ model Venue {
 
   events      Event[]
   adminUsers  AdminUser[]
+  ads         Advertisement[]
 }
 
 model Event {
@@ -38,6 +39,7 @@ model Event {
   pushContents PushContent[]
   scanStats    EventScanStat?
   sessions     Session[]
+  trendingCache TrendingResult[]
 }
 
 model PushContent {
@@ -87,4 +89,28 @@ model AdminUser {
   updatedAt      DateTime @updatedAt
 
   venue          Venue?   @relation(fields: [venueId], references: [id])
+}
+
+model Advertisement {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  imageUrl    String?
+  linkUrl     String
+  type        String   @default("CENTRAL") // "CENTRAL" or "VENUE"
+  venueId     String?
+  venue       Venue?   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model TrendingResult {
+  id          String   @id @default(uuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  platform    String   // "Dcard", "PTT", "IG", "Web"
+  title       String
+  snippet     String
+  url         String
+  imageUrl    String?
+  createdAt   DateTime @default(now())
 }
