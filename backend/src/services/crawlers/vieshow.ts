@@ -133,13 +133,21 @@ export class VieshowAdapter implements CrawlerProvider {
     if (events.length === 0) {
       console.warn('[Vieshow] No events found via DOM parsing, using fallback data for POC.');
       const now = new Date();
-      events.push({
-        externalId: 'demo-event-id', // 對齊我們前端預設的 demo ID
-        name: '沙丘2 (IMAX) - POC測試',
-        startTime: now,
-        unlockTime: new Date(now.getTime() + 15 * 60000), 
-        venueExternalId: 'demo-venue-id',
-        externalMeta: { source: 'vieshow', fallback: true }
+      
+      const movies = ['沙丘2 (IMAX)', '死侍與金鋼狼', '腦筋急轉彎2', '奧本海默', '全面啟動 (重映)'];
+      
+      movies.forEach((movieName, index) => {
+        // 交錯時間，有些馬上結束，有些稍後結束
+        const offsetMinutes = index * 5; 
+        
+        events.push({
+          externalId: `demo-event-id-${index}`, 
+          name: `${movieName} - POC測試`,
+          startTime: now,
+          unlockTime: new Date(now.getTime() + (15 + offsetMinutes) * 60000), 
+          venueExternalId: 'demo-venue-id',
+          externalMeta: { source: 'vieshow', fallback: true }
+        });
       });
     }
 
