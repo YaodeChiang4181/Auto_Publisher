@@ -244,6 +244,32 @@ export default async function adminRoutes(server: FastifyInstance) {
     return newEvent;
   });
 
+  // 刪除手動建立的活動
+  server.delete('/events/:id', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params as any;
+    const userContext = request.user as any;
+    
+    // 確認使用者是否存在
+    const user = await prisma.adminUser.findUnique({
+      where: { id: userContext.id },
+      include: { venue: true }
+    });
+    
+    if (!user || !user.venueId) {
+      return reply.status(403).send({ error: 'No venue associated' });
+    }
+
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event) return reply.status(404).send({ error: 'Event not found' });
+    
+    if (event.venueId !== user.venueId && user.role !== 'SUPER_ADMIN') {
+      return reply.status(403).send({ error: 'Cannot delete event for another venue' });
+    }
+
+    await prisma.event.delete({ where: { id } });
+    return reply.send({ success: true });
+  });
+
   // 取得目前場館的動態廣告
   server.get('/ads', { preValidation: [server.authenticate] }, async (request, reply) => {
     const user = request.user as any;
@@ -372,7 +398,7 @@ export default async function adminRoutes(server: FastifyInstance) {
     const user = await prisma.adminUser.findUnique({ where: { id: userContext.id } });
     if (!user) return reply.status(404).send({ error: 'User not found' });
 
-    let locations = (user.savedLocations as any[]) || [];
+    let locations = ((user as any).savedLocations as any[]) || [];
     if (locations.length >= 5) {
       return reply.status(400).send({ error: '常用位置最多只能儲存 5 筆' });
     }
@@ -396,7 +422,7 @@ export default async function adminRoutes(server: FastifyInstance) {
     const user = await prisma.adminUser.findUnique({ where: { id: userContext.id } });
     if (!user) return reply.status(404).send({ error: 'User not found' });
 
-    let locations = (user.savedLocations as any[]) || [];
+    let locations = ((user as any).savedLocations as any[]) || [];
     if (idx < 0 || idx >= locations.length) {
       return reply.status(400).send({ error: '無效的索引' });
     }

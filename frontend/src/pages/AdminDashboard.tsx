@@ -236,6 +236,22 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleDeleteEvent = async (id: string) => {
+    if (!window.confirm('確定要刪除此活動嗎？')) return;
+    try {
+      const res = await fetch(`/api/admin/events/${id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete event');
+      }
+      setEvents(events.filter(e => e.id !== id));
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
