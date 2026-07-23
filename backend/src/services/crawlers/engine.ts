@@ -1,5 +1,5 @@
 import { prisma } from '../../prisma';
-import { CrawlerProvider, ExternalEvent, ExternalVenue } from './types';
+import { CrawlerProvider } from './types';
 
 export class SyncEngine {
   constructor(private provider: CrawlerProvider) {}

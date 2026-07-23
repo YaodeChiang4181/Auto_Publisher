@@ -1,7 +1,6 @@
 import cron from 'node-cron';
 import { SyncEngine } from './services/crawlers/engine';
 import { VieshowAdapter } from './services/crawlers/vieshow';
-import { prisma } from './prisma';
 
 export function startScheduler() {
   console.log('--- Initializing Cloud Scheduler ---');

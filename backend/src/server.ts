@@ -6,9 +6,7 @@ import webpush from 'web-push';
 import Redis from 'ioredis';
 import { startScheduler } from './scheduler';
 import fastifyJwt from '@fastify/jwt';
-import authRoutes from './routes/auth';
 import adminRoutes from './routes/admin';
-import pushRoutes from './routes/push';
 import unlockRoutes from './routes/unlock';
 
 declare module 'fastify' {
@@ -60,7 +58,7 @@ const redisSub = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
 
 // API: Health check & Config
-server.get('/health', async (request, reply) => {
+server.get('/health', async (_request, _reply) => {
   return { 
     status: 'ok', 
     timestamp: new Date().toISOString(),
@@ -104,7 +102,7 @@ server.get('/api/qr/token', async (request, reply) => {
 // API: Verify Token & Create Anonymous Session (QR Scan)
 // Request expects: ?token=xxx (plus optional geoLat, geoLng for geo-fencing)
 server.get('/api/qr/scan', async (request, reply) => {
-  const { token, geoLat, geoLng } = request.query as { token?: string, geoLat?: string, geoLng?: string };
+  const { token } = request.query as { token?: string, geoLat?: string, geoLng?: string };
 
   if (!token) {
     return reply.status(400).send({ error: 'Token is required' });
@@ -116,7 +114,7 @@ server.get('/api/qr/scan', async (request, reply) => {
     return reply.status(403).send({ error: 'Invalid or expired token' });
   }
 
-  const { eventId, venueId } = JSON.parse(tokenDataStr);
+  const { eventId } = JSON.parse(tokenDataStr);
 
   // [Optional] Geo-fencing Light verification could be implemented here
   // e.g. check if user's geoLat/geoLng is within Venue's geoRadius
@@ -126,7 +124,7 @@ server.get('/api/qr/scan', async (request, reply) => {
   const browserToken = crypto.randomBytes(32).toString('hex');
 
   // Upsert the session into Postgres
-  const session = await prisma.session.create({
+  await prisma.session.create({
     data: {
       eventId,
       browserToken,
@@ -180,7 +178,7 @@ server.get('/api/session/status', async (request, reply) => {
 });
 
 // API: Fetch active events for frontend selection
-server.get('/api/events/active', async (request, reply) => {
+server.get('/api/events/active', async (_request, _reply) => {
   // 撈取最新的前 20 筆事件，包含關聯的場館資訊
   const events = await prisma.event.findMany({
     where: { isActive: true },
@@ -205,7 +203,7 @@ const start = async () => {
     });
 
     // 處理「離場時間鎖」到期事件
-    redisSub.on('message', async (channel, message) => {
+    redisSub.on('message', async (_channel, message) => {
       if (message.startsWith('session_timelock:')) {
         const browserToken = message.split(':')[1] as string;
         server.log.info(`Time-Lock expired for session: ${browserToken}`);
