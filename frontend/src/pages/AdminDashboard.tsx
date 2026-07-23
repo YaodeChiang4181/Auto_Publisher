@@ -218,7 +218,11 @@ const AdminDashboard = () => {
       const res = await fetch('/api/admin/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newEventName, startTime: newEventStartTime, unlockTime: newEventUnlockTime })
+        body: JSON.stringify({ 
+          name: newEventName, 
+          startTime: new Date(newEventStartTime).toISOString(), 
+          unlockTime: new Date(newEventUnlockTime).toISOString() 
+        })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create event');
@@ -468,7 +472,10 @@ const AdminDashboard = () => {
                   <div className="text-muted" style={{ fontSize: '0.9rem' }}>Starts: {new Date(event.startTime).toLocaleString()}</div>
                   <div className="text-muted" style={{ fontSize: '0.9rem' }}>Ends: {new Date(event.unlockTime).toLocaleString()}</div>
                 </div>
-                <div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button onClick={() => handleDeleteEvent(event.id)} style={{ background: 'rgba(255, 60, 60, 0.2)', border: '1px solid #ff3c3c', color: '#ff3c3c', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                    Delete
+                  </button>
                   <button onClick={() => handleStartKiosk(event.id, event.venueId)} style={{ background: 'rgba(0, 163, 255, 0.2)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
                     Start Kiosk
                   </button>
