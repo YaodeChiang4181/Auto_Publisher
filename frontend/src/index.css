@@ -117,6 +117,17 @@ body {
   flex: 1;
 }
 
+.dashboard-container {
+  width: 100%;
+  max-width: 90%;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  flex: 1;
+}
+
 .flex-center {
   display: flex;
   align-items: center;
