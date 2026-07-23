@@ -58,9 +58,10 @@ model PushContent {
 model EventScanStat {
   id             String   @id @default(uuid())
   eventId        String   @unique
-  totalScans     Int      @default(0)
-  verifiedScans  Int      @default(0)
-  lastScannedAt  DateTime @default(now())
+  totalScans        Int      @default(0)
+  verifiedScans     Int      @default(0)
+  geoVerifiedScans  Int      @default(0)
+  lastScannedAt     DateTime @default(now())
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -83,9 +84,11 @@ model AdminUser {
   username       String   @unique
   passwordHash   String
   name           String
-  role           String   @default("VENUE_MANAGER") // "SUPER_ADMIN" 或 "VENUE_MANAGER"
-  venueId        String?  // 如果是超級管理員可能為空
-  createdAt      DateTime @default(now())
+  role               String   @default("VENUE_MANAGER") // "SUPER_ADMIN" 或 "VENUE_MANAGER"
+  twoFactorSecret    String?
+  isTwoFactorEnabled Boolean  @default(false)
+  venueId            String?  // 如果是超級管理員可能為空
+  createdAt          DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   venue          Venue?   @relation(fields: [venueId], references: [id])

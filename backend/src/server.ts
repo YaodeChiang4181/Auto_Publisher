@@ -6,6 +6,7 @@ import webpush from 'web-push';
 import Redis from 'ioredis';
 import { startScheduler } from './scheduler';
 import fastifyJwt from '@fastify/jwt';
+import fastifyRateLimit from '@fastify/rate-limit';
 import adminRoutes from './routes/admin';
 import unlockRoutes from './routes/unlock';
 
@@ -32,6 +33,27 @@ const server = Fastify({ logger: true });
 server.register(fastifyJwt, {
   secret: process.env.JWT_SECRET || 'super-secret-fallback-key'
 });
+
+// Register Rate Limit
+server.register(fastifyRateLimit, {
+  max: 100, // Default 100 reqs per minute
+  timeWindow: '1 minute'
+});
+
+// Helper: Haversine distance formula
+function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3;
+  const p1 = lat1 * Math.PI/180;
+  const p2 = lat2 * Math.PI/180;
+  const dp = (lat2-lat1) * Math.PI/180;
+  const dl = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(dp/2) * Math.sin(dp/2) +
+            Math.cos(p1) * Math.cos(p2) *
+            Math.sin(dl/2) * Math.sin(dl/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; 
+}
 
 // Add authenticate decorator
 server.decorate('authenticate', async function (request: any, reply: any) {
@@ -102,7 +124,7 @@ server.get('/api/qr/token', async (request, reply) => {
 // API: Verify Token & Create Anonymous Session (QR Scan)
 // Request expects: ?token=xxx (plus optional geoLat, geoLng for geo-fencing)
 server.get('/api/qr/scan', async (request, reply) => {
-  const { token } = request.query as { token?: string, geoLat?: string, geoLng?: string };
+  const { token, geoLat, geoLng } = request.query as { token?: string, geoLat?: string, geoLng?: string };
 
   if (!token) {
     return reply.status(400).send({ error: 'Token is required' });
@@ -114,13 +136,26 @@ server.get('/api/qr/scan', async (request, reply) => {
     return reply.status(403).send({ error: 'Invalid or expired token' });
   }
 
-  const { eventId } = JSON.parse(tokenDataStr);
+  const { eventId, venueId } = JSON.parse(tokenDataStr);
 
-  // [Optional] Geo-fencing Light verification could be implemented here
-  // e.g. check if user's geoLat/geoLng is within Venue's geoRadius
+  let isGeoVerified = false;
+
+  if (geoLat && geoLng) {
+    const venue = await prisma.venue.findUnique({ where: { id: venueId } });
+    if (venue) {
+      const distance = getDistanceInMeters(
+        parseFloat(geoLat), parseFloat(geoLng),
+        venue.geoLat, venue.geoLng
+      );
+      if (distance <= venue.geoRadius) {
+        isGeoVerified = true;
+      } else {
+        return reply.status(403).send({ error: '您不在活動現場，無法解鎖內容 (Geo-fence failed)' });
+      }
+    }
+  }
 
   // Create an anonymous Session for the user
-  // We can use a cookie or let the frontend store this browserToken
   const browserToken = crypto.randomBytes(32).toString('hex');
 
   // Upsert the session into Postgres
@@ -129,13 +164,28 @@ server.get('/api/qr/scan', async (request, reply) => {
       eventId,
       browserToken,
       verifiedAt: new Date(),
-      isUnlocked: false // locked initially (Time-Lock)
+      isUnlocked: false
+    }
+  });
+
+  // Update EventScanStat
+  await prisma.eventScanStat.upsert({
+    where: { eventId },
+    update: {
+      totalScans: { increment: 1 },
+      verifiedScans: { increment: 1 },
+      geoVerifiedScans: isGeoVerified ? { increment: 1 } : undefined,
+      lastScannedAt: new Date()
+    },
+    create: {
+      eventId,
+      totalScans: 1,
+      verifiedScans: 1,
+      geoVerifiedScans: isGeoVerified ? 1 : 0,
     }
   });
 
   // Calculate remaining time for the Event to finish (Time-Lock)
-  // For simplicity, we just set a mock Time-Lock TTL in Redis
-  // When this expires, a background job or polling mechanism will unlock the content
   await redis.setex(`session_timelock:${browserToken}`, 300, 'locked'); // 300 seconds as example
 
   // After successful scan, we might also want to invalidate the QR token immediately (Single-use)

@@ -5,7 +5,7 @@ import { ShieldCheck, XCircle, Loader2 } from 'lucide-react';
 const ScanPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
+  const [status, setStatus] = useState<'verifying' | 'success' | 'error' | 'location'>('location');
   const [errMsg, setErr] = useState('');
 
   useEffect(() => {
@@ -16,9 +16,15 @@ const ScanPage = () => {
       return;
     }
 
-    const verifyToken = async () => {
+    const verifyToken = async (geoLat?: number, geoLng?: number) => {
+      setStatus('verifying');
       try {
-        const res = await fetch(`/api/qr/scan?token=${token}`);
+        let url = `/api/qr/scan?token=${token}`;
+        if (geoLat !== undefined && geoLng !== undefined) {
+          url += `&geoLat=${geoLat}&geoLng=${geoLng}`;
+        }
+
+        const res = await fetch(url);
         const data = await res.json();
         
         if (!res.ok) {
@@ -42,12 +48,55 @@ const ScanPage = () => {
       }
     };
 
-    // Simulate minimal loading time for premium feel
-    setTimeout(verifyToken, 800);
+    // Request Geolocation
+    if ('geolocation' in navigator) {
+      // Setup a timeout so we don't wait forever if the browser location API hangs
+      let locationResolved = false;
+      
+      const geoTimeout = setTimeout(() => {
+        if (!locationResolved) {
+          locationResolved = true;
+          verifyToken(); // Fallback without geo
+        }
+      }, 5000); // 5 second timeout
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (!locationResolved) {
+            locationResolved = true;
+            clearTimeout(geoTimeout);
+            verifyToken(position.coords.latitude, position.coords.longitude);
+          }
+        },
+        (error) => {
+          if (!locationResolved) {
+            locationResolved = true;
+            clearTimeout(geoTimeout);
+            console.warn('Geolocation error or denied:', error.message);
+            verifyToken(); // Fallback without geo
+          }
+        },
+        { timeout: 4000, maximumAge: 60000 }
+      );
+    } else {
+      verifyToken(); // Browser doesn't support geolocation
+    }
+
   }, [searchParams, navigate]);
 
   return (
     <div className="glass-panel flex-center" style={{ minHeight: '300px', flexDirection: 'column' }}>
+      {status === 'location' && (
+        <>
+          <Loader2 size={64} color="var(--accent-primary)" style={{ animation: 'spin 1.5s linear infinite' }} />
+          <h2 style={{ marginTop: '1.5rem' }}>正在取得定位權限...</h2>
+          <p className="text-muted" style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+            為了提供專屬場館互動體驗，請允許存取您的位置。<br/>
+            (若您拒絕，仍可進入，但可能無法參與限定活動)
+          </p>
+        </>
+      )}
+
       {status === 'verifying' && (
         <>
           <Loader2 size={64} color="var(--accent-primary)" style={{ animation: 'spin 1.5s linear infinite' }} />
