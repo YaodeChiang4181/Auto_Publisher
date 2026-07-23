@@ -40,71 +40,96 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 tracking-tight">
-          AutoPublisher B2B Panel
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Sign in to manage your venue and projections
-        </p>
+    <div style={{ width: '100%', maxWidth: '400px', margin: '4rem auto', padding: '2rem' }} className="glass-panel">
+      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <h2 className="title-gradient" style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>AutoPublisher B2B</h2>
+        <p className="text-muted">Sign in to manage your venue and projections</p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-100">
-          <form className="space-y-6" onSubmit={handleLogin}>
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                Username
-              </label>
-              <div className="mt-1">
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-black"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-black"
-                />
-              </div>
-            </div>
-
-            {error && (
-              <div className="text-red-500 text-sm font-medium bg-red-50 p-2 rounded">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-              >
-                {loading ? 'Signing in...' : 'Sign in'}
-              </button>
-            </div>
-          </form>
+      <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div>
+          <label htmlFor="username" style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+            Username
+          </label>
+          <input
+            id="username"
+            name="username"
+            type="text"
+            required
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '8px',
+              color: 'white',
+              outline: 'none'
+            }}
+            onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+            onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
+          />
         </div>
-      </div>
+
+        <div>
+          <label htmlFor="password" style={{ display: 'block', marginBottom: '0.5rem', color: '#fff' }}>
+            Password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '8px',
+              color: 'white',
+              outline: 'none'
+            }}
+            onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+            onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
+          />
+        </div>
+
+        {error && (
+          <div style={{ color: '#ff6b6b', fontSize: '0.9rem', textAlign: 'center' }}>
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            background: 'var(--accent-primary)',
+            color: '#000',
+            border: 'none',
+            borderRadius: '8px',
+            fontWeight: 'bold',
+            fontSize: '1rem',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.7 : 1,
+            transition: 'all 0.2s',
+            marginTop: '1rem'
+          }}
+          onMouseOver={(e) => {
+            if (!loading) e.currentTarget.style.boxShadow = '0 0 15px var(--accent-primary)';
+          }}
+          onMouseOut={(e) => {
+            if (!loading) e.currentTarget.style.boxShadow = 'none';
+          }}
+        >
+          {loading ? 'Signing in...' : 'Sign in'}
+        </button>
+      </form>
     </div>
   );
 };

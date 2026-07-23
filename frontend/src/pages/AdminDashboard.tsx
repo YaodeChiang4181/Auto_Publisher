@@ -45,8 +45,8 @@ const AdminDashboard = () => {
   }, [navigate]);
 
   const handleStartKiosk = (eventId: string, venueId: string) => {
-    // 開啟全新視窗並進入 Kiosk 投放模式
-    window.open(`/kiosk/${venueId}/${eventId}`, '_blank');
+    // 改用 react-router 的 navigate，避免被瀏覽器的彈出視窗阻擋 (Pop-up Blocker)
+    navigate(`/kiosk/${venueId}/${eventId}`);
   };
 
   const handleLogout = () => {
@@ -56,70 +56,104 @@ const AdminDashboard = () => {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
+    return <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem', margin: '2rem auto', maxWidth: '400px' }}>Loading...</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-blue-600">AutoPublisher B2B</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-500">Welcome, {user?.name || user?.username}</span>
-              <button 
-                onClick={handleLogout}
-                className="text-sm font-medium text-red-600 hover:text-red-500"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
+    <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto', padding: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h1 className="title-gradient" style={{ fontSize: '2rem', margin: 0 }}>AutoPublisher B2B</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span className="text-muted">Welcome, {user?.name || user?.username}</span>
+          <button 
+            onClick={handleLogout}
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(255,100,100,0.5)',
+              color: '#ff6b6b',
+              padding: '0.4rem 0.8rem',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255,100,100,0.1)')}
+            onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            Logout
+          </button>
         </div>
-      </nav>
+      </div>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <h2 className="text-2xl font-semibold mb-6">Venue Events</h2>
-          
-          <div className="bg-white shadow overflow-hidden sm:rounded-md">
-            <ul className="divide-y divide-gray-200">
-              {events.length === 0 ? (
-                <li className="px-6 py-4 text-center text-gray-500">
-                  No active events found for your venue.
-                </li>
-              ) : (
-                events.map((event) => (
-                  <li key={event.id}>
-                    <div className="px-4 py-4 flex items-center sm:px-6">
-                      <div className="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between">
-                        <div className="truncate">
-                          <div className="flex text-sm">
-                            <p className="font-medium text-blue-600 truncate">{event.name}</p>
-                            <p className="ml-1 flex-shrink-0 font-normal text-gray-500">
-                              (Starts: {new Date(event.startTime).toLocaleString()})
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="ml-5 flex-shrink-0">
-                        <button
-                          onClick={() => handleStartKiosk(event.id, event.venueId)}
-                          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                        >
-                          Start Kiosk
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                ))
-              )}
-            </ul>
-          </div>
+      <div className="glass-panel" style={{ padding: '2rem' }}>
+        <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', color: 'white' }}>Venue Events</h2>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {events.length === 0 ? (
+            <div className="text-muted" style={{ textAlign: 'center', padding: '2rem' }}>
+              No active events found for your venue.
+            </div>
+          ) : (
+            events.map((event) => (
+              <div 
+                key={event.id}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  padding: '1.5rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseOver={(ev) => {
+                  (ev.currentTarget as HTMLDivElement).style.background = 'rgba(255, 255, 255, 0.1)';
+                  (ev.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                }}
+                onMouseOut={(ev) => {
+                  (ev.currentTarget as HTMLDivElement).style.background = 'rgba(255, 255, 255, 0.05)';
+                  (ev.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                }}
+              >
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontWeight: 600, fontSize: '1.2rem', color: '#fff', marginBottom: '0.5rem' }}>{event.name}</div>
+                  <div className="text-muted" style={{ fontSize: '0.9rem' }}>
+                    Starts: {new Date(event.startTime).toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <button
+                    onClick={() => handleStartKiosk(event.id, event.venueId)}
+                    style={{
+                      background: 'rgba(0, 163, 255, 0.2)',
+                      border: '1px solid var(--accent-primary)',
+                      color: 'var(--accent-primary)',
+                      padding: '0.6rem 1.2rem',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      transition: 'all 0.2s',
+                      boxShadow: '0 0 10px rgba(0, 163, 255, 0.1)'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = 'var(--accent-primary)';
+                      e.currentTarget.style.color = '#000';
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 163, 255, 0.4)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = 'rgba(0, 163, 255, 0.2)';
+                      e.currentTarget.style.color = 'var(--accent-primary)';
+                      e.currentTarget.style.boxShadow = '0 0 10px rgba(0, 163, 255, 0.1)';
+                    }}
+                  >
+                    Start Kiosk
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
-      </main>
+      </div>
     </div>
   );
 };
