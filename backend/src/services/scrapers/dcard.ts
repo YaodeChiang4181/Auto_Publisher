@@ -12,7 +12,7 @@ export async function fetchDcardPosts(eventName: string): Promise<ScrapedResult[
     console.log(`[Dcard Scraper] Searching for: ${eventName}`);
     const response = await axios.get(`https://www.dcard.tw/service/api/v2/search/posts`, {
       params: {
-        query: eventName,
+        query: `${eventName} 解析`,
         limit: 5,
       },
       headers: {

@@ -4,8 +4,8 @@ import { ScrapedResult } from './dcard';
 export async function fetchGoogleResults(eventName: string): Promise<ScrapedResult[]> {
   console.log(`[Google Scraper] Starting fallback scrape for event: ${eventName}`);
   
-  // 專注於搜尋 IG, FB 或綜合影評
-  const query = `"${eventName}" (site:instagram.com OR site:facebook.com OR 影評 OR 心得)`;
+  // 專注於搜尋個人日誌、影評小網站
+  const query = `"${eventName}" (影評 OR 解析) -新聞 -yahoo -ettoday -chinatimes -udn -appledaily -ltn (site:medium.com OR site:vocus.cc OR site:pixnet.net OR site:blogger.com OR site:dcard.tw OR site:ptt.cc)`;
   const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
 
   let browser;

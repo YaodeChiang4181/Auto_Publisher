@@ -9,7 +9,7 @@ export async function fetchPttPosts(eventName: string): Promise<ScrapedResult[]>
     // PTT 電影版搜尋
     const searchUrl = `https://www.ptt.cc/bbs/movie/search`;
     const response = await axios.get(searchUrl, {
-      params: { q: eventName },
+      params: { q: `${eventName} 解析` },
       headers: {
         'Cookie': 'over18=1', // PTT 18+ bypass
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'

@@ -20,7 +20,18 @@ const WaitRoom = () => {
         const data = await res.json();
         
         if (data.isUnlocked) {
-          navigate(`/unlock/${eventId}`, { replace: true });
+          if (Notification.permission === 'granted') {
+            try {
+              const reg = await navigator.serviceWorker.ready;
+              await reg.showNotification(`彩蛋已解鎖！`, {
+                body: `您等待的活動已經解鎖，為您導向至解析頁面！`,
+              });
+            } catch (e) {}
+            // 給予 1.5 秒讓推播橫幅有時間彈出
+            setTimeout(() => navigate(`/unlock/${eventId}`, { replace: true }), 1500);
+          } else {
+            navigate(`/unlock/${eventId}`, { replace: true });
+          }
         } else if (data.unlockTime) {
           // 計算剩餘秒數
           const remainingSecs = Math.max(0, Math.floor((new Date(data.unlockTime).getTime() - Date.now()) / 1000));
