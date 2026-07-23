@@ -3,6 +3,27 @@ import { prisma } from '../prisma';
 import bcrypt from 'bcryptjs';
 
 export default async function adminRoutes(server: FastifyInstance) {
+  // 建立初始帳號 (緊急/測試用)
+  server.get('/seed', async (request, reply) => {
+    const username = 'admin';
+    const password = '123456';
+    const existing = await prisma.adminUser.findUnique({ where: { username } });
+    if (existing) {
+      return { message: 'Admin already exists', venueId: existing.venueId };
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    let venue = await prisma.venue.findFirst();
+    if (!venue) {
+      venue = await prisma.venue.create({
+        data: { name: 'Demo Venue', geoLat: 0, geoLng: 0, geoRadius: 100, isActive: true }
+      });
+    }
+    await prisma.adminUser.create({
+      data: { username, passwordHash, name: 'System Admin', role: 'SUPER_ADMIN', venueId: venue.id }
+    });
+    return { message: 'Admin created successfully' };
+  });
+
   // 登入 API
   server.post('/login', async (request, reply) => {
     const { username, password } = request.body as any;
