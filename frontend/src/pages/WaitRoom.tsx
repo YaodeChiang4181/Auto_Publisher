@@ -20,7 +20,7 @@ const WaitRoom = () => {
         const data = await res.json();
         
         if (data.isUnlocked) {
-          navigate('/unlock', { replace: true });
+          navigate(`/unlock/${eventId}`, { replace: true });
         } else if (data.unlockTime) {
           // 計算剩餘秒數
           const remainingSecs = Math.max(0, Math.floor((new Date(data.unlockTime).getTime() - Date.now()) / 1000));
@@ -55,9 +55,11 @@ const WaitRoom = () => {
         if (!res.ok) throw new Error('無法取得推播金鑰');
         const { vapidPublicKey } = await res.json();
         
-        // Register SW and subscribe
+        // Register SW and wait until it's active
         const registration = await navigator.serviceWorker.register('/sw.js');
-        const subscription = await registration.pushManager.subscribe({
+        const readyRegistration = await navigator.serviceWorker.ready;
+        
+        const subscription = await readyRegistration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: vapidPublicKey
         });
