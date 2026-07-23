@@ -15,7 +15,7 @@ interface EventData {
 }
 
 const VenueScreen = () => {
-  const { eventId, venueId } = useParams<{ eventId?: string; venueId?: string }>();
+  const { eventId } = useParams<{ eventId?: string; venueId?: string }>();
   const [events, setEvents] = useState<EventData[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
   const [token, setToken] = useState<string | null>(null);
