@@ -158,8 +158,8 @@ const AdminDashboard = () => {
 
   const handleUploadAd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adFile) {
-      alert('Please select an image or animation file.');
+    if (!adFile && !adLinkUrl) {
+      alert('請至少提供「廣告連結 (Link URL)」或「圖片/動畫檔案 (Image/Animation)」其中一項。');
       return;
     }
 
@@ -169,7 +169,9 @@ const AdminDashboard = () => {
       formData.append('title', adTitle);
       formData.append('description', adDescription);
       formData.append('linkUrl', adLinkUrl);
-      formData.append('image', adFile);
+      if (adFile) {
+        formData.append('image', adFile);
+      }
 
       const res = await fetch('/api/admin/ads', {
         method: 'POST',
@@ -217,7 +219,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
+    <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1 className="title-gradient" style={{ fontSize: '2rem', margin: 0 }}>AutoPublisher B2B</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -348,12 +350,12 @@ const AdminDashboard = () => {
                 <input type="text" value={adDescription} onChange={e => setAdDescription(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="Optional short description" />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Link URL</label>
-                <input type="url" value={adLinkUrl} onChange={e => setAdLinkUrl(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="https://..." />
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Link URL (Optional)</label>
+                <input type="url" value={adLinkUrl} onChange={e => setAdLinkUrl(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="https://..." />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Image / Animation (Max 5MB)</label>
-                <input id="adFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Image / Animation (Max 5MB, Optional)</label>
+                <input id="adFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
               </div>
               <button type="submit" disabled={isUploading} style={{ marginTop: '0.5rem', padding: '0.8rem', background: 'var(--accent-primary)', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                 {isUploading ? 'Uploading...' : 'Upload Advertisement'}
@@ -383,7 +385,11 @@ const AdminDashboard = () => {
                         {ad.description || 'No description'}
                       </p>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <a href={ad.linkUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent-primary)' }}>Preview Link</a>
+                        {ad.linkUrl ? (
+                          <a href={ad.linkUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent-primary)' }}>Preview Link</a>
+                        ) : (
+                          <span style={{ fontSize: '0.8rem', color: '#666' }}>No Link</span>
+                        )}
                         <button onClick={() => handleDeleteAd(ad.id)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Delete</button>
                       </div>
                     </div>

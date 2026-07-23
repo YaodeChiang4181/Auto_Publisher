@@ -183,37 +183,64 @@ const UnlockPage = () => {
 
       {/* Interactive Ad Block */}
       {currentAd && (
-        <a 
-          href={currentAd.linkUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="glass-panel"
-          style={{
-            display: 'block',
-            padding: 0,
-            overflow: 'hidden',
-            textDecoration: 'none',
-            color: 'inherit',
-            position: 'relative',
-            transition: 'transform 0.3s',
-            animation: 'fade-in 0.5s'
-          }}
-          onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-          onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        >
-          <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#fff', zIndex: 10 }}>
-            Sponsored ({currentAd.type === 'CENTRAL' ? 'Platform' : 'Venue'})
-          </div>
-          {currentAd.imageUrl && (
-            <div style={{ width: '100%', height: '160px', overflow: 'hidden' }}>
-              <img src={currentAd.imageUrl} alt="Ad" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        currentAd.linkUrl ? (
+          <a 
+            href={currentAd.linkUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="glass-panel"
+            style={{
+              display: 'block',
+              padding: 0,
+              overflow: 'hidden',
+              textDecoration: 'none',
+              color: 'inherit',
+              position: 'relative',
+              transition: 'transform 0.3s',
+              animation: 'fade-in 0.5s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#fff', zIndex: 10 }}>
+              Sponsored ({currentAd.type === 'CENTRAL' ? 'Platform' : 'Venue'})
             </div>
-          )}
-          <div style={{ padding: '1.5rem', background: 'linear-gradient(to right, rgba(255,255,255,0.05), transparent)' }}>
-            <h3 style={{ fontSize: '1.2rem', color: 'var(--accent-primary)', marginBottom: '0.5rem' }}>{currentAd.title}</h3>
-            <p className="text-muted" style={{ fontSize: '0.9rem' }}>{currentAd.description}</p>
+            {currentAd.imageUrl && (
+              <div style={{ width: '100%', height: '160px', overflow: 'hidden' }}>
+                <img src={currentAd.imageUrl} alt="Ad" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
+            <div style={{ padding: '1.5rem', background: 'linear-gradient(to right, rgba(255,255,255,0.05), transparent)' }}>
+              <h3 style={{ fontSize: '1.2rem', color: 'var(--accent-primary)', marginBottom: '0.5rem' }}>{currentAd.title}</h3>
+              <p className="text-muted" style={{ fontSize: '0.9rem' }}>{currentAd.description}</p>
+            </div>
+          </a>
+        ) : (
+          <div 
+            className="glass-panel"
+            style={{
+              display: 'block',
+              padding: 0,
+              overflow: 'hidden',
+              color: 'inherit',
+              position: 'relative',
+              animation: 'fade-in 0.5s'
+            }}
+          >
+            <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#fff', zIndex: 10 }}>
+              Sponsored ({currentAd.type === 'CENTRAL' ? 'Platform' : 'Venue'})
+            </div>
+            {currentAd.imageUrl && (
+              <div style={{ width: '100%', height: '160px', overflow: 'hidden' }}>
+                <img src={currentAd.imageUrl} alt="Ad" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
+            <div style={{ padding: '1.5rem', background: 'linear-gradient(to right, rgba(255,255,255,0.05), transparent)' }}>
+              <h3 style={{ fontSize: '1.2rem', color: 'var(--accent-primary)', marginBottom: '0.5rem' }}>{currentAd.title}</h3>
+              <p className="text-muted" style={{ fontSize: '0.9rem' }}>{currentAd.description}</p>
+            </div>
           </div>
-        </a>
+        )
       )}
       
       <style>{`

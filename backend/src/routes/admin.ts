@@ -277,18 +277,20 @@ export default async function adminRoutes(server: FastifyInstance) {
       }
     }
 
-    if (!title || !linkUrl) {
-      return reply.status(400).send({ error: '標題與連結為必填欄位' });
+    if (!title) {
+      return reply.status(400).send({ error: '標題為必填欄位' });
     }
 
-    // 驗證 URL 格式 (防禦 XSS via URL)
-    try {
-      const urlObj = new URL(linkUrl);
-      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-        return reply.status(400).send({ error: '僅支援 HTTP 或 HTTPS 連結' });
+    // 驗證 URL 格式 (防禦 XSS via URL)，若有填寫才驗證
+    if (linkUrl) {
+      try {
+        const urlObj = new URL(linkUrl);
+        if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+          return reply.status(400).send({ error: '僅支援 HTTP 或 HTTPS 連結' });
+        }
+      } catch (e) {
+        return reply.status(400).send({ error: '無效的連結格式' });
       }
-    } catch (e) {
-      return reply.status(400).send({ error: '無效的連結格式' });
     }
 
     const imageUrl = imageFilename ? `/uploads/ads/${imageFilename}` : null;
