@@ -14,19 +14,26 @@ const WaitRoom = () => {
       return;
     }
 
-    // Polling fallback
-    const pollInterval = setInterval(async () => {
+    const fetchStatus = async () => {
       try {
         const res = await fetch(`/api/session/status`);
         const data = await res.json();
+        
         if (data.isUnlocked) {
-          clearInterval(pollInterval);
           navigate('/unlock', { replace: true });
+        } else if (data.unlockTime) {
+          // 計算剩餘秒數
+          const remainingSecs = Math.max(0, Math.floor((new Date(data.unlockTime).getTime() - Date.now()) / 1000));
+          setTimeLeft(remainingSecs);
         }
       } catch (e) {
-        console.error('Polling error', e);
+        console.error('Status fetch error', e);
       }
-    }, 3000);
+    };
+
+    fetchStatus();
+    // Polling fallback every 3s
+    const pollInterval = setInterval(fetchStatus, 3000);
 
     return () => clearInterval(pollInterval);
   }, [navigate, eventId]);

@@ -255,10 +255,16 @@ server.get('/api/session/status', async (request, reply) => {
   const browserToken = request.cookies.sessionToken;
   if (!browserToken) return reply.status(401).send({ error: 'Missing session cookie' });
 
-  const session = await prisma.session.findUnique({ where: { browserToken } });
+  const session = await prisma.session.findUnique({ 
+    where: { browserToken },
+    include: { event: true } 
+  });
   if (!session) return reply.status(404).send({ error: 'Session not found' });
 
-  return { isUnlocked: session.isUnlocked };
+  return { 
+    isUnlocked: session.isUnlocked,
+    unlockTime: session.event?.unlockTime
+  };
 });
 
 // API: Fetch active events for frontend selection
