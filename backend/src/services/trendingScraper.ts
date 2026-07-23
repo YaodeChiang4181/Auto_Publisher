@@ -1,7 +1,5 @@
 import { prisma } from '../prisma';
-import { fetchDcardPosts, ScrapedResult } from './scrapers/dcard';
-import { fetchPttPosts } from './scrapers/ptt';
-import { fetchGoogleResults } from './scrapers/google';
+import { searchYahoo, ScrapedResult } from './scrapers/yahoo';
 
 export async function fetchTrendingForEvent(eventId: string, eventName: string) {
   // 1. Check Cache
@@ -24,28 +22,33 @@ export async function fetchTrendingForEvent(eventId: string, eventName: string) 
   
   let combinedResults: ScrapedResult[] = [];
 
-  // 2. 優先非同步並行執行高速 API 爬蟲 (Dcard + PTT)
+  // 2. 透過統一的 Yahoo Search Gateway 進行精準智慧搜尋 (避開反爬蟲牆)
   try {
-    const [dcardResults, pttResults] = await Promise.all([
-      fetchDcardPosts(eventName),
-      fetchPttPosts(eventName)
+    const dcardQuery = `"${eventName}" (影評 OR 解析) site:dcard.tw`;
+    const pttQuery = `"${eventName}" (雷 OR 解析) site:ptt.cc/bbs/movie`;
+    const webQuery = `"${eventName}" (影評 OR 解析) -新聞 -yahoo -ettoday -chinatimes -udn -appledaily -ltn`;
+
+    const [dcardResults, pttResults, webResults] = await Promise.all([
+      searchYahoo(dcardQuery, 'Dcard'),
+      searchYahoo(pttQuery, 'PTT'),
+      searchYahoo(webQuery, 'Web')
     ]);
     
-    combinedResults = [...dcardResults, ...pttResults];
-    console.log(`[Scraper Engine] Fast Scrape found ${combinedResults.length} results (Dcard: ${dcardResults.length}, PTT: ${pttResults.length})`);
+    combinedResults = [...dcardResults, ...pttResults, ...webResults];
+    console.log(`[Scraper Engine] Gateway found ${combinedResults.length} results (Dcard: ${dcardResults.length}, PTT: ${pttResults.length}, Web: ${webResults.length})`);
   } catch (error) {
-    console.error(`[Scraper Engine] Fast Scrape failed:`, error);
+    console.error(`[Scraper Engine] Gateway Scrape failed:`, error);
   }
 
-  // 3. 備援策略：如果高速 API 抓不到足夠資料，啟動 Puppeteer 抓取 Google (IG/FB)
-  if (combinedResults.length < 3) {
-    try {
-      console.log(`[Scraper Engine] Fast Scrape results insufficient. Triggering Google fallback.`);
-      const googleResults = await fetchGoogleResults(eventName);
-      combinedResults = [...combinedResults, ...googleResults];
-    } catch (error) {
-      console.error(`[Scraper Engine] Google fallback failed:`, error);
-    }
+  // 3. 完美降級 (Graceful Degradation): 如果萬一還是全數失敗被擋，產生一個通用的搜尋連結，避免空畫面
+  if (combinedResults.length === 0) {
+    console.log(`[Scraper Engine] Gateway returned 0 results. Injecting graceful fallback.`);
+    combinedResults.push({
+      platform: 'Web',
+      title: `${eventName} - Yahoo 電影深度討論與解析`,
+      snippet: `系統為您精選關於「${eventName}」的熱門話題，點擊立即前往 Yahoo 電影參與討論與查看評價。`,
+      url: `https://tw.search.yahoo.com/search?p=${encodeURIComponent(eventName + ' 影評 解析')}`
+    });
   }
 
   // 去除重複網址的結果
