@@ -5,8 +5,41 @@ import crypto from 'crypto';
 import webpush from 'web-push';
 import Redis from 'ioredis';
 import { startScheduler } from './scheduler';
+import fastifyJwt from '@fastify/jwt';
+import adminRoutes from './routes/admin';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    authenticate: any;
+  }
+}
+
+declare module '@fastify/jwt' {
+  interface FastifyJWT {
+    user: {
+      id: string;
+      username: string;
+      role: string;
+      venueId: string | null;
+    }
+  }
+}
 
 const server = Fastify({ logger: true });
+
+// Register JWT
+server.register(fastifyJwt, {
+  secret: process.env.JWT_SECRET || 'super-secret-fallback-key'
+});
+
+// Add authenticate decorator
+server.decorate('authenticate', async function (request: any, reply: any) {
+  try {
+    await request.jwtVerify();
+  } catch (err) {
+    reply.send(err);
+  }
+});
 
 // 讀取正式環境的 VAPID Keys，若無則生成測試用 Keys
 const vapidKeys = {
@@ -31,6 +64,9 @@ server.get('/health', async (request, reply) => {
     vapidPublicKey: vapidKeys.publicKey // 讓前端取得公鑰以建立推播訂閱
   };
 });
+
+// 註冊 Admin API 路由
+server.register(adminRoutes, { prefix: '/api/admin' });
 
 // API: Generate Dynamic QR Code Token
 // Request expects: ?eventId=xxx&venueId=yyy

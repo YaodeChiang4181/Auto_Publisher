@@ -19,6 +19,7 @@ model Venue {
   updatedAt   DateTime @updatedAt
 
   events      Event[]
+  adminUsers  AdminUser[]
 }
 
 model Event {
@@ -73,4 +74,17 @@ model Session {
   pushSub        Json?    // 儲存 Web Push 訂閱物件 (endpoint, keys)
   
   event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model AdminUser {
+  id             String   @id @default(uuid())
+  username       String   @unique
+  passwordHash   String
+  name           String
+  role           String   @default("VENUE_MANAGER") // "SUPER_ADMIN" 或 "VENUE_MANAGER"
+  venueId        String?  // 如果是超級管理員可能為空
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  venue          Venue?   @relation(fields: [venueId], references: [id])
 }
