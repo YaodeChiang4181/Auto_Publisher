@@ -20,6 +20,11 @@ const AdminDashboard = () => {
   const [adFile, setAdFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  // Manual event state
+  const [newEventName, setNewEventName] = useState('');
+  const [newEventStartTime, setNewEventStartTime] = useState('');
+  const [newEventUnlockTime, setNewEventUnlockTime] = useState('');
+
   // 2FA state
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
@@ -176,12 +181,13 @@ const AdminDashboard = () => {
         method: 'POST'
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to generate 2FA');
       if (data.qrCodeUrl) {
         setQrCodeUrl(data.qrCodeUrl);
         setSetup2FAMode(true);
       }
-    } catch (e) {
-      alert('Failed to generate 2FA QR Code');
+    } catch (e: any) {
+      alert(e.message);
     }
   };
 
@@ -196,12 +202,33 @@ const AdminDashboard = () => {
         body: JSON.stringify({ token: twoFactorCode })
       });
       
-      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Invalid 2FA code');
       
       alert('2FA enabled successfully! Please login again with your new 24-hour token limit.');
       handleLogout();
-    } catch (e) {
-      alert('Invalid 2FA code');
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/admin/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newEventName, startTime: newEventStartTime, unlockTime: newEventUnlockTime })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create event');
+      setEvents([...events, data].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()));
+      setNewEventName('');
+      setNewEventStartTime('');
+      setNewEventUnlockTime('');
+      alert('活動建立成功！');
+    } catch (e: any) {
+      alert(e.message);
     }
   };
 
@@ -404,7 +431,30 @@ const AdminDashboard = () => {
       </div>
 
       <div className="glass-panel" style={{ padding: '2rem' }}>
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', color: 'white' }}>Upcoming Events</h2>
+        <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', color: 'white' }}>📅 Upcoming Events</h2>
+        
+        {/* Manual Event Creation Form */}
+        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '2rem' }}>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-primary)' }}>Create Manual Event (代替爬蟲)</h3>
+          <form onSubmit={handleCreateEvent} style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ flex: '1 1 200px' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Event Name</label>
+              <input type="text" value={newEventName} onChange={e => setNewEventName(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="電影/活動名稱" />
+            </div>
+            <div style={{ flex: '1 1 200px' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Start Time</label>
+              <input type="datetime-local" value={newEventStartTime} onChange={e => setNewEventStartTime(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
+            </div>
+            <div style={{ flex: '1 1 200px' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>End/Unlock Time</label>
+              <input type="datetime-local" value={newEventUnlockTime} onChange={e => setNewEventUnlockTime(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
+            </div>
+            <button type="submit" style={{ flex: '0 0 auto', padding: '0.6rem 1.5rem', background: 'var(--accent-primary)', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '39px' }}>
+              Create
+            </button>
+          </form>
+        </div>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {events.length === 0 ? (
             <div className="text-muted" style={{ textAlign: 'center', padding: '2rem' }}>
@@ -416,6 +466,7 @@ const AdminDashboard = () => {
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontWeight: 600, fontSize: '1.2rem', color: '#fff', marginBottom: '0.5rem' }}>{event.name}</div>
                   <div className="text-muted" style={{ fontSize: '0.9rem' }}>Starts: {new Date(event.startTime).toLocaleString()}</div>
+                  <div className="text-muted" style={{ fontSize: '0.9rem' }}>Ends: {new Date(event.unlockTime).toLocaleString()}</div>
                 </div>
                 <div>
                   <button onClick={() => handleStartKiosk(event.id, event.venueId)} style={{ background: 'rgba(0, 163, 255, 0.2)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>

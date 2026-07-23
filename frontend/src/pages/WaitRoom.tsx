@@ -50,9 +50,9 @@ const WaitRoom = () => {
     try {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
-        setPushStatus('granted');
-        // Retrieve public key from backend
-        const res = await fetch('/health');
+        // Retrieve public key from backend (via /api/health to bypass Vite proxy issues without restart)
+        const res = await fetch('/api/health');
+        if (!res.ok) throw new Error('無法取得推播金鑰');
         const { vapidPublicKey } = await res.json();
         
         // Register SW and subscribe
@@ -63,16 +63,21 @@ const WaitRoom = () => {
         });
 
         // Send to backend
-        await fetch('/api/push/subscribe', {
+        const subRes = await fetch('/api/push/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subscription })
         });
+        if (!subRes.ok) throw new Error('無法向伺服器註冊推播');
+
+        // 一切都成功後才改變狀態，避免畫面閃爍
+        setPushStatus('granted');
       } else {
         setPushStatus('denied');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to enable push', error);
+      alert(`啟用推播失敗: ${error.message || error}`);
       setPushStatus('denied');
     }
   };

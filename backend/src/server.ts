@@ -114,6 +114,15 @@ server.get('/health', async (_request, _reply) => {
   };
 });
 
+// 新增 /api/health 為了避免 Vite proxy 沒重開抓不到
+server.get('/api/health', async (_request, _reply) => {
+  return { 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    vapidPublicKey: vapidKeys.publicKey
+  };
+});
+
 // 註冊 Admin API 路由
 server.register(adminRoutes, { prefix: '/api/admin' });
 server.register(unlockRoutes, { prefix: '/api/unlock' });
@@ -212,7 +221,12 @@ server.get('/api/qr/scan', async (request, reply) => {
   });
 
   // Calculate remaining time for the Event to finish (Time-Lock)
-  await redis.setex(`session_timelock:${browserToken}`, 300, 'locked'); // 300 seconds as example
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  let ttl = 300; // fallback
+  if (event) {
+    ttl = Math.max(1, Math.floor((event.unlockTime.getTime() - Date.now()) / 1000));
+  }
+  await redis.setex(`session_timelock:${browserToken}`, ttl, 'locked');
 
   // After successful scan, we might also want to invalidate the QR token immediately (Single-use)
   await redis.del(`qr_token:${token}`);

@@ -219,6 +219,30 @@ export default async function adminRoutes(server: FastifyInstance) {
     return events;
   });
 
+  // 手動新增活動 (替代爬蟲)
+  server.post('/events', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const user = request.user as any;
+    if (!user.venueId) return reply.status(403).send({ error: 'Not associated with a venue' });
+
+    const { name, startTime, unlockTime } = request.body as any;
+    if (!name || !startTime || !unlockTime) {
+      return reply.status(400).send({ error: 'Missing required fields' });
+    }
+
+    const newEvent = await prisma.event.create({
+      data: {
+        name,
+        startTime: new Date(startTime),
+        unlockTime: new Date(unlockTime),
+        venueId: user.venueId,
+        externalId: `manual_${Date.now()}`,
+        externalMeta: { source: 'manual' }
+      }
+    });
+
+    return newEvent;
+  });
+
   // 取得目前場館的動態廣告
   server.get('/ads', { preValidation: [server.authenticate] }, async (request, reply) => {
     const user = request.user as any;
