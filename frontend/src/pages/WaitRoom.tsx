@@ -56,7 +56,7 @@ const WaitRoom = () => {
         const { vapidPublicKey } = await res.json();
         
         // Register SW and wait until it's active
-        const registration = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.register('/sw.js');
         const readyRegistration = await navigator.serviceWorker.ready;
         
         const subscription = await readyRegistration.pushManager.subscribe({
