@@ -24,13 +24,13 @@ export async function fetchTrendingForEvent(eventId: string, eventName: string) 
 
   // 2. 透過統一的 Yahoo Search Gateway 進行精準智慧搜尋 (避開反爬蟲牆)
   try {
-    // [Bugfix] 移除絕對引號並過濾特殊符號 (如「．」、「：」)，避免搜尋引擎 Exact Match 失敗導致完全搜不到
+    // [Bugfix] 避免使用過於嚴格的布林運算與引號，改用單純的關鍵字組合，讓搜尋引擎自然回傳最相關的心得或解析
+    // 這樣即使遇到冷門詞彙（如「仙劍 參商別」），也不會因為 exact match 失敗而 fallback 到字典
     const sanitizedEventName = eventName.replace(/[．。，、：；？！:;,!?()\[\]"'']/g, ' ').replace(/\s+/g, ' ').trim();
 
-    const dcardQuery = `${sanitizedEventName} (影評 OR 解析 OR 介紹 OR 心得) site:dcard.tw`;
-    // 將 PTT 範圍從 bbs/movie 放寬到整個 PTT，這樣才能搜到劇本殺 (LARP) 或動漫版 (C_Chat) 的心得
-    const pttQuery = `${sanitizedEventName} (雷 OR 解析 OR 介紹 OR 心得) site:ptt.cc`;
-    const webQuery = `${sanitizedEventName} (影評 OR 解析 OR 介紹 OR 心得 OR 推薦) -新聞 -yahoo -ettoday -chinatimes -udn -appledaily -ltn`;
+    const dcardQuery = `${sanitizedEventName} 心得 解析 介紹 site:dcard.tw`;
+    const pttQuery = `${sanitizedEventName} 雷 解析 介紹 心得 site:ptt.cc`;
+    const webQuery = `${sanitizedEventName} 心得 解析 介紹 推薦 -新聞 -yahoo -ettoday -chinatimes -udn -appledaily -ltn`;
 
     const [dcardResults, pttResults, webResults] = await Promise.all([
       searchYahoo(dcardQuery, 'Dcard'),

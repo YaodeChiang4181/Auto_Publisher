@@ -324,10 +324,13 @@ server.get('/api/session/status', {
 
 // API: Fetch active events for frontend selection
 server.get('/api/events/active', async (_request, _reply) => {
-  // 撈取最新的前 20 筆事件，包含關聯的場館資訊
   const events = await prisma.event.findMany({
     where: { isActive: true },
-    include: { venue: true },
+    include: { 
+      venue: {
+        include: { adminUsers: true }
+      }
+    },
     orderBy: { startTime: 'asc' },
     take: 20
   });
