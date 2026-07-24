@@ -116,7 +116,7 @@ const VenueScreen = () => {
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontWeight: 600, fontSize: '1.2rem', color: '#fff', marginBottom: '0.5rem' }}>{e.name}</div>
                   <div className="text-muted" style={{ fontSize: '0.9rem' }}>
-                    {e.venue.adminUsers?.[0]?.name ? `${e.venue.adminUsers[0].name}（測試）` : e.venue.name}
+                    {e.venue.name}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -170,7 +170,7 @@ const VenueScreen = () => {
         放映中：{selectedEvent.name}
       </p>
       <p className="text-muted" style={{ fontSize: '1.2rem', marginBottom: '3rem' }}>
-        {selectedEvent.venue.adminUsers?.[0]?.name ? `${selectedEvent.venue.adminUsers[0].name}（測試）` : selectedEvent.venue.name}
+        {selectedEvent.venue.name}
       </p>
 
       <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', display: 'inline-block', boxShadow: '0 0 40px rgba(0, 163, 255, 0.2)' }}>
