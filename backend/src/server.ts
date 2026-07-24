@@ -41,7 +41,8 @@ server.register(fastifyJwt, {
 // Register Rate Limit
 server.register(fastifyRateLimit, {
   max: 100, // Default 100 reqs per minute
-  timeWindow: '1 minute'
+  timeWindow: '1 minute',
+  redis: redis // [Feature] Use Redis for scalable rate-limiting across nodes
 });
 
 // Register Cookie
@@ -158,7 +159,11 @@ server.get('/api/qr/token', async (request, reply) => {
 
 // API: Verify Token & Create Anonymous Session (QR Scan)
 // Request expects: ?token=xxx (plus optional geoLat, geoLng for geo-fencing)
-server.get('/api/qr/scan', async (request, reply) => {
+server.get('/api/qr/scan', {
+  config: {
+    rateLimit: { max: 300, timeWindow: '1 minute' } // 放寬至 300 次以應付散場連同個 Wi-Fi 的人潮
+  }
+}, async (request, reply) => {
   const { token, geoLat, geoLng } = request.query as { token?: string, geoLat?: string, geoLng?: string };
 
   if (!token) {
@@ -227,9 +232,15 @@ server.get('/api/qr/scan', async (request, reply) => {
     ttl = Math.max(1, Math.floor((event.unlockTime.getTime() - Date.now()) / 1000));
   }
   await redis.setex(`session_timelock:${browserToken}`, ttl, 'locked');
+  
+  // [Performance] 將初始狀態直接快取到 Redis，避免後續輪詢打爆 DB
+  await redis.setex(`session_status:${browserToken}`, ttl + 3600, JSON.stringify({
+    isUnlocked: false,
+    unlockTime: event?.unlockTime
+  }));
 
-  // After successful scan, we might also want to invalidate the QR token immediately (Single-use)
-  await redis.del(`qr_token:${token}`);
+  // [Bugfix] 移除單次使用的 QR Token 刪除邏輯，允許多人同時掃描同一個 10 秒內的畫面
+  // await redis.del(`qr_token:${token}`);
 
   // Set sessionToken as HttpOnly Cookie
   reply.setCookie('sessionToken', browserToken, {
@@ -247,7 +258,11 @@ server.get('/api/qr/scan', async (request, reply) => {
 });
 
 // API: Subscribe to Web Push
-server.post('/api/push/subscribe', async (request, reply) => {
+server.post('/api/push/subscribe', {
+  config: {
+    rateLimit: { max: 300, timeWindow: '1 minute' } // 放寬與掃描同等，因爲會是一起動作的
+  }
+}, async (request, reply) => {
   const { subscription } = request.body as { subscription: any };
   const browserToken = request.cookies.sessionToken;
 
@@ -265,20 +280,36 @@ server.post('/api/push/subscribe', async (request, reply) => {
 });
 
 // API: Polling fallback for unlock status
-server.get('/api/session/status', async (request, reply) => {
+server.get('/api/session/status', {
+  config: {
+    rateLimit: { max: 1000, timeWindow: '1 minute' } // 允許 1000 次輪詢，保護伺服器但完全滿足散場人數
+  }
+}, async (request, reply) => {
   const browserToken = request.cookies.sessionToken;
   if (!browserToken) return reply.status(401).send({ error: 'Missing session cookie' });
 
+  // [Performance] 第一關：直接從 Redis 記憶體拿狀態 (0 毫秒極速，保護 DB)
+  const cachedStatus = await redis.get(`session_status:${browserToken}`);
+  if (cachedStatus) {
+    return JSON.parse(cachedStatus);
+  }
+
+  // 第二關：如果記憶體沒有 (例如重啟)，才去資料庫拿
   const session = await prisma.session.findUnique({ 
     where: { browserToken },
     include: { event: true } 
   });
   if (!session) return reply.status(404).send({ error: 'Session not found' });
 
-  return { 
+  const statusData = { 
     isUnlocked: session.isUnlocked,
     unlockTime: session.event?.unlockTime
   };
+  
+  // 回補快取
+  await redis.setex(`session_status:${browserToken}`, 3600, JSON.stringify(statusData));
+
+  return statusData;
 });
 
 // API: Fetch active events for frontend selection
@@ -316,8 +347,15 @@ const start = async () => {
           // 更新資料庫狀態為已解鎖
           const session = await prisma.session.update({
             where: { browserToken },
-            data: { isUnlocked: true }
+            data: { isUnlocked: true },
+            include: { event: true }
           });
+
+          // [Performance] 同步更新 Redis 中的快取狀態為已解鎖
+          await redis.setex(`session_status:${browserToken}`, 3600, JSON.stringify({
+            isUnlocked: true,
+            unlockTime: session.event?.unlockTime
+          }));
 
           // 如果使用者有允許 Web Push，則發送推播通知
           if (session.pushSub) {

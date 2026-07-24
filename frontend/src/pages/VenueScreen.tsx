@@ -133,27 +133,32 @@ const VenueScreen = () => {
 
   return (
     <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem', position: 'relative', minHeight: '80vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-      {!eventId && ( // 如果不是 Kiosk 模式，才顯示返回按鈕
-        <button 
-          onClick={() => setSelectedEvent(null)}
-          style={{
-            position: 'absolute',
-            top: '2rem',
-            left: '2rem',
-            background: 'rgba(255,255,255,0.1)',
-            border: '1px solid rgba(255,255,255,0.2)',
-            color: 'white',
-            padding: '0.5rem 1rem',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            transition: 'all 0.2s'
-          }}
-          onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
-          onMouseOut={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
-        >
-          ← 返回列表
-        </button>
-      )}
+      <button 
+        onClick={() => {
+          if (eventId) {
+            window.location.href = '/admin/dashboard';
+          } else {
+            setSelectedEvent(null);
+          }
+        }}
+        style={{
+          position: 'absolute',
+          top: '2rem',
+          left: '2rem',
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          color: 'white',
+          padding: '0.5rem 1rem',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          zIndex: 10
+        }}
+        onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.2)')}
+        onMouseOut={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+      >
+        ← {eventId ? '返回後台' : '返回列表'}
+      </button>
 
       <h1 className="title-gradient" style={{ fontSize: '3.5rem', marginBottom: '1.5rem', marginTop: eventId ? '0' : '2rem' }}>
         掃碼解鎖專屬彩蛋
