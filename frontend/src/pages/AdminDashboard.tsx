@@ -8,6 +8,7 @@ const AdminDashboard = () => {
   const [user, setUser] = useState<any>(null);
   
   // Venue state
+  const [venueName, setVenueName] = useState<string>('');
   const [geoLat, setGeoLat] = useState<string>('');
   const [geoLng, setGeoLng] = useState<string>('');
   const [geoRadiusKm, setGeoRadiusKm] = useState<string>('');
@@ -64,6 +65,7 @@ const AdminDashboard = () => {
         setIs2FAEnabled(meData.user.isTwoFactorEnabled);
         
         if (meData.user.venue) {
+          setVenueName(meData.user.venue.name || '');
           setGeoLat(meData.user.venue.geoLat.toString());
           setGeoLng(meData.user.venue.geoLng.toString());
           setGeoRadiusKm((meData.user.venue.geoRadius / 1000).toString());
@@ -104,11 +106,11 @@ const AdminDashboard = () => {
         headers: { 
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ geoLat, geoLng, geoRadius: radiusMeters })
+        body: JSON.stringify({ name: venueName, geoLat, geoLng, geoRadius: radiusMeters })
       });
-      alert('Venue location settings updated successfully!');
+      alert('場館設定更新成功！');
     } catch (e) {
-      alert('Failed to update venue settings.');
+      alert('無法更新場館設定。');
     } finally {
       setIsUpdatingVenue(false);
     }
@@ -205,7 +207,7 @@ const AdminDashboard = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Invalid 2FA code');
       
-      alert('2FA enabled successfully! Please login again with your new 24-hour token limit.');
+      alert('2FA 雙重驗證啟用成功！請使用新核發的憑證重新登入。');
       handleLogout();
     } catch (e: any) {
       alert(e.message);
@@ -256,7 +258,7 @@ const AdminDashboard = () => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (file.size > 5 * 1024 * 1024) {
-        alert('File size exceeds 5MB limit.');
+        alert('檔案大小超過 5MB 限制。');
         e.target.value = '';
         return;
       }
@@ -300,7 +302,7 @@ const AdminDashboard = () => {
       setAdLinkUrl('');
       setAdFile(null);
       (document.getElementById('adFileInput') as HTMLInputElement).value = '';
-      alert('Advertisement uploaded successfully!');
+      alert('廣告上傳成功！');
     } catch (e: any) {
       alert(e.message);
     } finally {
@@ -309,21 +311,21 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteAd = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this ad?')) return;
+    if (!confirm('確定要刪除這個廣告嗎？')) return;
     try {
       const res = await fetch(`/api/admin/ads/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setAds(ads.filter(ad => ad.id !== id));
       } else {
-        alert('Failed to delete ad');
+        alert('無法刪除廣告');
       }
     } catch (e) {
-      alert('Error deleting ad');
+      alert('刪除廣告時發生錯誤');
     }
   };
 
   if (loading) {
-    return <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem', margin: '2rem auto', maxWidth: '400px' }}>Loading...</div>;
+    return <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem', margin: '2rem auto', maxWidth: '400px' }}>載入中...</div>;
   }
 
   return (
@@ -331,7 +333,7 @@ const AdminDashboard = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1 className="title-gradient" style={{ fontSize: '2rem', margin: 0 }}>AutoPublisher B2B</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span className="text-muted">Welcome, {user?.name || user?.username}</span>
+          <span className="text-muted">歡迎, {user?.name || user?.username}</span>
           <button 
             onClick={handleLogout}
             style={{
@@ -344,7 +346,7 @@ const AdminDashboard = () => {
               transition: 'all 0.2s'
             }}
           >
-            Logout
+            登出
           </button>
         </div>
       </div>
@@ -354,16 +356,20 @@ const AdminDashboard = () => {
         <div className="glass-panel" style={{ padding: '2rem' }}>
           <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'white' }}>場域地理圍欄設定</h2>
           <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-            Set the geographical boundaries for this venue. Users scanning QR codes outside this radius will be marked as unverified.
+            設定此場館的地理邊界，以及場館顯示名稱。在半徑外掃描 QR Code 的使用者將會被標記為未驗證狀態。
           </p>
           <form onSubmit={handleUpdateVenue} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>場館名稱 (顯示在 Kiosk 數位看板)</label>
+              <input type="text" value={venueName} onChange={e => setVenueName(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：信義威秀影城" />
+            </div>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Latitude</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>緯度 (Latitude)</label>
                 <input type="text" value={geoLat} onChange={e => setGeoLat(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Longitude</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>經度 (Longitude)</label>
                 <input type="text" value={geoLng} onChange={e => setGeoLng(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
               </div>
               <button type="button" onClick={handleGetGeolocation} style={{ padding: '0.5rem 1rem', background: 'rgba(0,163,255,0.2)', color: 'var(--accent-primary)', border: '1px solid var(--accent-primary)', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }} title="自動定位目前裝置">
@@ -371,13 +377,13 @@ const AdminDashboard = () => {
               </button>
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Radius (Kilometers)</label>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>半徑範圍 (公里)</label>
               <input type="number" step="0.1" value={geoRadiusKm} onChange={e => setGeoRadiusKm(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
             </div>
             
             <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
               <button type="submit" disabled={isUpdatingVenue} style={{ flex: 2, padding: '0.6rem', background: 'var(--accent-secondary)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                {isUpdatingVenue ? 'Updating...' : 'Save Location Settings'}
+                {isUpdatingVenue ? '更新中...' : '儲存場域設定'}
               </button>
               <button type="button" onClick={handleSaveLocation} style={{ flex: 1, padding: '0.6rem', background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '4px', cursor: 'pointer' }}>
                 💾 儲存為常用
@@ -422,15 +428,15 @@ const AdminDashboard = () => {
           <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <strong style={{ display: 'block', marginBottom: '0.3rem' }}>Two-Factor Authentication (2FA)</strong>
-                <span className="text-muted" style={{ fontSize: '0.85rem' }}>Requires a 6-digit code every 24 hours.</span>
+                <strong style={{ display: 'block', marginBottom: '0.3rem' }}>雙重驗證 (2FA)</strong>
+                <span className="text-muted" style={{ fontSize: '0.85rem' }}>每 24 小時需輸入一次 6 位數動態密碼。</span>
               </div>
               <div>
                 {is2FAEnabled ? (
-                  <span style={{ color: '#4ade80', fontWeight: 'bold' }}>✓ Enabled</span>
+                  <span style={{ color: '#4ade80', fontWeight: 'bold' }}>✓ 已啟用</span>
                 ) : (
                   <button onClick={handleGenerate2FA} style={{ padding: '0.4rem 0.8rem', background: 'transparent', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', borderRadius: '4px', cursor: 'pointer' }}>
-                    Enable 2FA
+                    啟用 2FA
                   </button>
                 )}
               </div>
@@ -439,10 +445,10 @@ const AdminDashboard = () => {
             {setup2FAMode && !is2FAEnabled && (
               <div style={{ marginTop: '1.5rem', textAlign: 'center', padding: '1rem', background: 'white', borderRadius: '8px' }}>
                 <img src={qrCodeUrl} alt="2FA QR Code" style={{ width: '150px', height: '150px', marginBottom: '1rem' }} />
-                <p style={{ color: 'black', fontSize: '0.9rem', marginBottom: '1rem' }}>Scan with Google Authenticator</p>
+                <p style={{ color: 'black', fontSize: '0.9rem', marginBottom: '1rem' }}>請使用 Google Authenticator 掃描</p>
                 <form onSubmit={handleEnable2FA} style={{ display: 'flex', gap: '0.5rem' }}>
                   <input type="text" maxLength={6} required value={twoFactorCode} onChange={e => setTwoFactorCode(e.target.value)} placeholder="000000" style={{ flex: 1, padding: '0.5rem', textAlign: 'center', letterSpacing: '0.2rem', border: '1px solid #ccc', borderRadius: '4px', color: 'black' }} />
-                  <button type="submit" style={{ padding: '0.5rem 1rem', background: 'var(--accent-primary)', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Verify</button>
+                  <button type="submit" style={{ padding: '0.5rem 1rem', background: 'var(--accent-primary)', color: 'black', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>驗證並啟用</button>
                 </form>
               </div>
             )}
@@ -453,24 +459,23 @@ const AdminDashboard = () => {
       <div className="glass-panel" style={{ padding: '2rem' }}>
         <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', color: 'white' }}>即將到來的活動</h2>
         
-        {/* Manual Event Creation Form */}
         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '2rem' }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-primary)' }}>Create Manual Event (代替爬蟲)</h3>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-primary)' }}>手動建立活動 (代替爬蟲)</h3>
           <form onSubmit={handleCreateEvent} style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 200px' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Event Name</label>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>活動名稱</label>
               <input type="text" value={newEventName} onChange={e => setNewEventName(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="電影/活動名稱" />
             </div>
             <div style={{ flex: '1 1 200px' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Start Time</label>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>開始時間</label>
               <input type="datetime-local" value={newEventStartTime} onChange={e => setNewEventStartTime(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
             </div>
             <div style={{ flex: '1 1 200px' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>End/Unlock Time</label>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>結束/解鎖時間</label>
               <input type="datetime-local" value={newEventUnlockTime} onChange={e => setNewEventUnlockTime(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
             </div>
             <button type="submit" style={{ flex: '0 0 auto', padding: '0.6rem 1.5rem', background: 'var(--accent-primary)', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '39px' }}>
-              Create
+              建立
             </button>
           </form>
         </div>
@@ -478,22 +483,22 @@ const AdminDashboard = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {events.length === 0 ? (
             <div className="text-muted" style={{ textAlign: 'center', padding: '2rem' }}>
-              No active events found for your venue.
+              目前沒有任何進行中的活動。
             </div>
           ) : (
             events.map((event) => (
               <div key={event.id} style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontWeight: 600, fontSize: '1.2rem', color: '#fff', marginBottom: '0.5rem' }}>{event.name}</div>
-                  <div className="text-muted" style={{ fontSize: '0.9rem' }}>Starts: {new Date(event.startTime).toLocaleString()}</div>
-                  <div className="text-muted" style={{ fontSize: '0.9rem' }}>Ends: {new Date(event.unlockTime).toLocaleString()}</div>
+                  <div className="text-muted" style={{ fontSize: '0.9rem' }}>開始： {new Date(event.startTime).toLocaleString()}</div>
+                  <div className="text-muted" style={{ fontSize: '0.9rem' }}>結束： {new Date(event.unlockTime).toLocaleString()}</div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button onClick={() => handleDeleteEvent(event.id)} style={{ background: 'rgba(255, 60, 60, 0.2)', border: '1px solid #ff3c3c', color: '#ff3c3c', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
-                    Delete
+                    刪除
                   </button>
                   <button onClick={() => handleStartKiosk(event.id, event.venueId)} style={{ background: 'rgba(0, 163, 255, 0.2)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
-                    Start Kiosk
+                    啟動數位看板
                   </button>
                 </div>
               </div>
@@ -506,43 +511,43 @@ const AdminDashboard = () => {
       <div className="glass-panel" style={{ padding: '2rem', marginTop: '2rem' }}>
         <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'white' }}>動態廣告管理</h2>
         <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-          Upload your venue-specific advertisements. These will be rotated every 10 seconds alongside central ads on the user's unlock page. Supported formats: JPG, PNG, WEBP, GIF (Max 5MB).
+          上傳場館專屬的動態廣告。廣告將會在使用者的解鎖頁面中，每 10 秒與平台全域廣告輪播一次。支援格式：JPG, PNG, WEBP, GIF (最大 5MB)。
         </p>
 
         <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
           {/* Upload Form */}
           <div style={{ flex: '1 1 300px', background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-primary)' }}>Upload New Ad</h3>
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-primary)' }}>上傳新廣告</h3>
             <form onSubmit={handleUploadAd} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Ad Title</label>
-                <input type="text" value={adTitle} onChange={e => setAdTitle(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="E.g., Special Popcorn Combo" />
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>廣告標題</label>
+                <input type="text" value={adTitle} onChange={e => setAdTitle(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：超值爆米花套餐" />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Description</label>
-                <input type="text" value={adDescription} onChange={e => setAdDescription(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="Optional short description" />
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>廣告描述</label>
+                <input type="text" value={adDescription} onChange={e => setAdDescription(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="非必填簡短描述" />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Link URL (Optional)</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>導購連結 (選填)</label>
                 <input type="url" value={adLinkUrl} onChange={e => setAdLinkUrl(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="https://..." />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Image / Animation (Max 5MB, Optional)</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>圖片或動畫 (最大 5MB, 選填)</label>
                 <input id="adFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
               </div>
               <button type="submit" disabled={isUploading} style={{ marginTop: '0.5rem', padding: '0.8rem', background: 'var(--accent-primary)', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                {isUploading ? 'Uploading...' : 'Upload Advertisement'}
+                {isUploading ? '上傳中...' : '上傳廣告'}
               </button>
             </form>
           </div>
 
           {/* Ad List */}
           <div style={{ flex: '2 1 400px' }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'white' }}>Current Active Ads</h3>
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'white' }}>目前播放中的廣告</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
               {ads.length === 0 ? (
                 <div className="text-muted" style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
-                  No advertisements uploaded yet.
+                  目前還沒有上傳任何廣告。
                 </div>
               ) : (
                 ads.map(ad => (
@@ -555,15 +560,15 @@ const AdminDashboard = () => {
                     <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
                       <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>{ad.title}</h4>
                       <p className="text-muted" style={{ fontSize: '0.8rem', marginBottom: '1rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                        {ad.description || 'No description'}
+                        {ad.description || '無描述'}
                       </p>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         {ad.linkUrl ? (
-                          <a href={ad.linkUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent-primary)' }}>Preview Link</a>
+                          <a href={ad.linkUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent-primary)' }}>預覽連結</a>
                         ) : (
-                          <span style={{ fontSize: '0.8rem', color: '#666' }}>No Link</span>
+                          <span style={{ fontSize: '0.8rem', color: '#666' }}>無連結</span>
                         )}
-                        <button onClick={() => handleDeleteAd(ad.id)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Delete</button>
+                        <button onClick={() => handleDeleteAd(ad.id)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>刪除</button>
                       </div>
                     </div>
                   </div>

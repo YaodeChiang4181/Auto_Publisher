@@ -35,6 +35,11 @@ const UnlockPage = () => {
         
         const data = await res.json();
         setContent(data);
+        
+        // [Bugfix] 如果平台廣告為空，但場館廣告有內容，則預設直接顯示場館廣告，避免前 10 秒版面空白
+        if (data.ads?.central?.length === 0 && data.ads?.venue?.length > 0) {
+          setIsCentralAd(false);
+        }
       } catch (e) {
         console.error('Failed to fetch unlock content', e);
       } finally {

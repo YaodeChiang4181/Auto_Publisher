@@ -185,13 +185,14 @@ export default async function adminRoutes(server: FastifyInstance) {
   // 更新場館的 Geo-fencing 設定
   server.put('/venue', { preValidation: [server.authenticate] }, async (request, reply) => {
     const userContext = request.user as any;
-    const { geoLat, geoLng, geoRadius } = request.body as any;
+    const { name, geoLat, geoLng, geoRadius } = request.body as any;
     
     if (!userContext.venueId) return reply.status(403).send({ error: 'Not associated with a venue' });
 
     const updatedVenue = await prisma.venue.update({
       where: { id: userContext.venueId },
       data: { 
+        name: name ? name : undefined,
         geoLat: parseFloat(geoLat), 
         geoLng: parseFloat(geoLng), 
         geoRadius: parseFloat(geoRadius) 
