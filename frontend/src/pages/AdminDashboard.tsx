@@ -65,7 +65,7 @@ const AdminDashboard = () => {
         setIs2FAEnabled(meData.user.isTwoFactorEnabled);
         
         if (meData.user.venue) {
-          setVenueName(meData.user.venue.name || '');
+          setVenueName(meData.user.venue.name || meData.user.username || '');
           setGeoLat(meData.user.venue.geoLat.toString());
           setGeoLng(meData.user.venue.geoLng.toString());
           setGeoRadiusKm((meData.user.venue.geoRadius / 1000).toString());

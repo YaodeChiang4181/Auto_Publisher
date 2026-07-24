@@ -28,7 +28,7 @@ export default async function adminRoutes(server: FastifyInstance) {
     let venue = await prisma.venue.findFirst();
     if (!venue) {
       venue = await prisma.venue.create({
-        data: { name: 'Demo Venue', geoLat: 0, geoLng: 0, geoRadius: 100, isActive: true }
+        data: { name: username, geoLat: 0, geoLng: 0, geoRadius: 100, isActive: true }
       });
     }
     await prisma.adminUser.create({
@@ -336,7 +336,7 @@ export default async function adminRoutes(server: FastifyInstance) {
     let title = '';
     let description = '';
     let linkUrl = '';
-    let imageFilename = '';
+    let imageDataUrl = '';
 
     for await (const part of parts) {
       if (part.type === 'file') {
@@ -345,25 +345,27 @@ export default async function adminRoutes(server: FastifyInstance) {
           return reply.status(400).send({ error: '不支援的檔案格式，請上傳 JPG, PNG, WEBP 或 GIF' });
         }
         
-        // 使用 UUID 重新命名，防禦 Path Traversal 與 RCE
-        const ext = path.extname(part.filename).toLowerCase();
         // 確保附檔名在白名單內 (防禦偽造 MIME)
+        const ext = path.extname(part.filename).toLowerCase();
         const safeExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
         if (!safeExts.includes(ext)) {
           return reply.status(400).send({ error: '副檔名異常' });
         }
 
-        imageFilename = crypto.randomUUID() + ext;
-        // [Bugfix] tsx ESM 模式下 __dirname 會回傳 '.' 而非絕對路徑，改用 process.cwd() 確保寫入正確位置
-        const uploadDir = path.resolve(process.cwd(), 'uploads', 'ads');
-        const savePath = path.join(uploadDir, imageFilename);
-        
-        // 確保目錄存在 (防呆)
-        if (!fs.existsSync(uploadDir)) {
-          fs.mkdirSync(uploadDir, { recursive: true });
+        // [Fix] 改為 Base64 Data URL 存入資料庫，不再依賴檔案系統
+        // 這樣在 Vercel serverless (唯讀檔案系統) 和本地開發都能正常運作
+        const chunks: Buffer[] = [];
+        for await (const chunk of part.file) {
+          chunks.push(chunk);
         }
-
-        await pipeline(part.file, fs.createWriteStream(savePath));
+        const buffer = Buffer.concat(chunks);
+        
+        // 5MB 限制檢查
+        if (buffer.length > 5 * 1024 * 1024) {
+          return reply.status(400).send({ error: '檔案大小超過 5MB 限制' });
+        }
+        
+        imageDataUrl = `data:${part.mimetype};base64,${buffer.toString('base64')}`;
       } else {
         if (part.fieldname === 'title') title = part.value as string;
         if (part.fieldname === 'description') description = part.value as string;
@@ -387,7 +389,7 @@ export default async function adminRoutes(server: FastifyInstance) {
       }
     }
 
-    const imageUrl = imageFilename ? `/uploads/ads/${imageFilename}` : null;
+    const imageUrl = imageDataUrl || null;
 
     const ad = await prisma.advertisement.create({
       data: {
