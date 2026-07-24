@@ -58,8 +58,9 @@ server.register(fastifyMultipart, {
 });
 
 // Register Static for serving uploaded ads
+// [Bugfix] tsx ESM 模式下 __dirname 可能回傳 '.' 而非絕對路徑，改用 process.cwd()
 server.register(fastifyStatic, {
-  root: path.join(__dirname, '../uploads'),
+  root: path.resolve(process.cwd(), 'uploads'),
   prefix: '/uploads/',
 });
 

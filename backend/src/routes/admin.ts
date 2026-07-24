@@ -354,7 +354,8 @@ export default async function adminRoutes(server: FastifyInstance) {
         }
 
         imageFilename = crypto.randomUUID() + ext;
-        const uploadDir = path.join(__dirname, '../../uploads/ads');
+        // [Bugfix] tsx ESM 模式下 __dirname 會回傳 '.' 而非絕對路徑，改用 process.cwd() 確保寫入正確位置
+        const uploadDir = path.resolve(process.cwd(), 'uploads', 'ads');
         const savePath = path.join(uploadDir, imageFilename);
         
         // 確保目錄存在 (防呆)
@@ -418,7 +419,7 @@ export default async function adminRoutes(server: FastifyInstance) {
     // 實體刪除圖片檔案
     if (ad.imageUrl && ad.imageUrl.startsWith('/uploads/ads/')) {
       const filename = ad.imageUrl.replace('/uploads/ads/', '');
-      const filepath = path.join(__dirname, '../../uploads/ads', filename);
+      const filepath = path.resolve(process.cwd(), 'uploads', 'ads', filename);
       if (fs.existsSync(filepath)) {
         fs.unlinkSync(filepath);
       }
