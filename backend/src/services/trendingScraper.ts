@@ -24,9 +24,13 @@ export async function fetchTrendingForEvent(eventId: string, eventName: string) 
 
   // 2. 透過統一的 Yahoo Search Gateway 進行精準智慧搜尋 (避開反爬蟲牆)
   try {
-    const dcardQuery = `"${eventName}" (影評 OR 解析) site:dcard.tw`;
-    const pttQuery = `"${eventName}" (雷 OR 解析) site:ptt.cc/bbs/movie`;
-    const webQuery = `"${eventName}" (影評 OR 解析) -新聞 -yahoo -ettoday -chinatimes -udn -appledaily -ltn`;
+    // [Bugfix] 移除絕對引號並過濾特殊符號 (如「．」、「：」)，避免搜尋引擎 Exact Match 失敗導致完全搜不到
+    const sanitizedEventName = eventName.replace(/[．。，、：；？！:;,!?()\[\]"'']/g, ' ').replace(/\s+/g, ' ').trim();
+
+    const dcardQuery = `${sanitizedEventName} (影評 OR 解析 OR 介紹 OR 心得) site:dcard.tw`;
+    // 將 PTT 範圍從 bbs/movie 放寬到整個 PTT，這樣才能搜到劇本殺 (LARP) 或動漫版 (C_Chat) 的心得
+    const pttQuery = `${sanitizedEventName} (雷 OR 解析 OR 介紹 OR 心得) site:ptt.cc`;
+    const webQuery = `${sanitizedEventName} (影評 OR 解析 OR 介紹 OR 心得 OR 推薦) -新聞 -yahoo -ettoday -chinatimes -udn -appledaily -ltn`;
 
     const [dcardResults, pttResults, webResults] = await Promise.all([
       searchYahoo(dcardQuery, 'Dcard'),
@@ -45,9 +49,9 @@ export async function fetchTrendingForEvent(eventId: string, eventName: string) 
     console.log(`[Scraper Engine] Gateway returned 0 results. Injecting graceful fallback.`);
     combinedResults.push({
       platform: 'Web',
-      title: `${eventName} - Yahoo 電影深度討論與解析`,
-      snippet: `系統為您精選關於「${eventName}」的熱門話題，點擊立即前往 Yahoo 電影參與討論與查看評價。`,
-      url: `https://tw.search.yahoo.com/search?p=${encodeURIComponent(eventName + ' 影評 解析')}`
+      title: `${eventName} - 深度討論與解析`,
+      snippet: `系統為您精選關於「${eventName}」的熱門話題，點擊立即參與討論與查看評價。`,
+      url: `https://tw.search.yahoo.com/search?p=${encodeURIComponent(eventName + ' 影評 解析 介紹')}`
     });
   }
 
