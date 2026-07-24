@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, MessageCircle, Globe, MessagesSquare, Loader2, LockKeyhole } from 'lucide-react';
+import { ExternalLink, MessageCircle, Globe, MessagesSquare, Loader2, LockKeyhole, Facebook, Instagram } from 'lucide-react';
 
 const UnlockPage = () => {
   const navigate = useNavigate();
@@ -184,6 +184,102 @@ const UnlockPage = () => {
             <p className="text-muted">目前網路上尚未有足夠的熱門討論。</p>
           </div>
         )}
+      </div>
+
+      {/* Social Media Links */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '3rem' }}>
+        <a 
+          href="https://facebook.com" 
+          target="_blank" 
+          rel="noreferrer"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '50px',
+            height: '50px',
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: '#1877F2',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = 'rgba(24, 119, 242, 0.1)';
+            e.currentTarget.style.borderColor = 'rgba(24, 119, 242, 0.3)';
+            e.currentTarget.style.transform = 'translateY(-3px)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+            e.currentTarget.style.transform = 'none';
+          }}
+        >
+          <Facebook size={24} />
+        </a>
+        <a 
+          href="https://instagram.com" 
+          target="_blank" 
+          rel="noreferrer"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '50px',
+            height: '50px',
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: '#E1306C',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = 'rgba(225, 48, 108, 0.1)';
+            e.currentTarget.style.borderColor = 'rgba(225, 48, 108, 0.3)';
+            e.currentTarget.style.transform = 'translateY(-3px)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+            e.currentTarget.style.transform = 'none';
+          }}
+        >
+          <Instagram size={24} />
+        </a>
+        <a 
+          href="https://threads.net" 
+          target="_blank" 
+          rel="noreferrer"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '50px',
+            height: '50px',
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: '#ffffff',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            e.currentTarget.style.transform = 'translateY(-3px)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+            e.currentTarget.style.transform = 'none';
+          }}
+        >
+          {/* Threads logo approximation with AtSign */}
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14.5 12c0 1.5-1.5 2.5-2.5 2.5S9.5 13.5 9.5 12s1.5-2.5 2.5-2.5c1.5 0 2.5 1 2.5 2.5Z"></path>
+            <path d="M12 14.5c-3 0-5-2-5-5s2-5 5-5 5 2.5 5 5-2.5 5-5 5"></path>
+            <path d="M12 21.5c-5.5 0-9.5-4-9.5-9.5s4-9.5 9.5-9.5 9.5 4 9.5 9.5-2.5 8-5 8"></path>
+          </svg>
+        </a>
       </div>
 
       {/* Interactive Ad Block */}
