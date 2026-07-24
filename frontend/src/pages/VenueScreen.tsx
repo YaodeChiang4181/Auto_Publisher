@@ -142,9 +142,9 @@ const VenueScreen = () => {
           }
         }}
         style={{
-          position: 'absolute',
-          top: '2rem',
-          left: '2rem',
+          position: 'fixed',
+          top: '20px',
+          left: '20px',
           background: 'rgba(255,255,255,0.1)',
           border: '1px solid rgba(255,255,255,0.2)',
           color: 'white',

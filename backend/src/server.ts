@@ -289,7 +289,12 @@ server.get('/api/session/status', {
   // [Performance] 第一關：直接從 Redis 記憶體拿狀態 (0 毫秒極速，保護 DB)
   const cachedStatus = await redis.get(`session_status:${browserToken}`);
   if (cachedStatus) {
-    return JSON.parse(cachedStatus);
+    const parsed = JSON.parse(cachedStatus);
+    // [Fallback] 懶惰解鎖 (Lazy Unlock)：萬一 QStash 沒觸發或在本地測試，若時間到了就直接回傳解鎖
+    if (!parsed.isUnlocked && parsed.unlockTime && new Date() >= new Date(parsed.unlockTime)) {
+      parsed.isUnlocked = true;
+    }
+    return parsed;
   }
 
   // 第二關：如果記憶體沒有 (例如重啟)，才去資料庫拿
@@ -299,10 +304,17 @@ server.get('/api/session/status', {
   });
   if (!session) return reply.status(404).send({ error: 'Session not found' });
 
-  const statusData = { 
+  let statusData = { 
     isUnlocked: session.isUnlocked,
     unlockTime: session.event?.unlockTime
   };
+  
+  // [Fallback] 懶惰解鎖
+  if (!statusData.isUnlocked && statusData.unlockTime && new Date() >= new Date(statusData.unlockTime)) {
+    statusData.isUnlocked = true;
+    // 順便補上非同步的 DB 更新，確保後續資料一致性
+    prisma.session.update({ where: { browserToken }, data: { isUnlocked: true } }).catch(() => {});
+  }
   
   // 回補快取
   await redis.setex(`session_status:${browserToken}`, 3600, JSON.stringify(statusData));

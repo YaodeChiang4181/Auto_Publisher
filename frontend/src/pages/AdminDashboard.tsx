@@ -352,7 +352,7 @@ const AdminDashboard = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
         {/* Venue Location Settings */}
         <div className="glass-panel" style={{ padding: '2rem' }}>
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'white' }}>📍 Venue Geo-fencing</h2>
+          <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'white' }}>場域地理圍欄設定</h2>
           <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>
             Set the geographical boundaries for this venue. Users scanning QR codes outside this radius will be marked as unverified.
           </p>
@@ -417,7 +417,7 @@ const AdminDashboard = () => {
 
         {/* Security Settings */}
         <div className="glass-panel" style={{ padding: '2rem' }}>
-          <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'white' }}>🔐 Security Settings</h2>
+          <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'white' }}>安全設定</h2>
           
           <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -451,7 +451,7 @@ const AdminDashboard = () => {
       </div>
 
       <div className="glass-panel" style={{ padding: '2rem' }}>
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', color: 'white' }}>📅 Upcoming Events</h2>
+        <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', color: 'white' }}>即將到來的活動</h2>
         
         {/* Manual Event Creation Form */}
         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '2rem' }}>
@@ -504,7 +504,7 @@ const AdminDashboard = () => {
 
       {/* Dynamic Ads Management */}
       <div className="glass-panel" style={{ padding: '2rem', marginTop: '2rem' }}>
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'white' }}>🖼️ Dynamic Ads Management</h2>
+        <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'white' }}>動態廣告管理</h2>
         <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>
           Upload your venue-specific advertisements. These will be rotated every 10 seconds alongside central ads on the user's unlock page. Supported formats: JPG, PNG, WEBP, GIF (Max 5MB).
         </p>
