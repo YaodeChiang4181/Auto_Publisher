@@ -4,8 +4,6 @@ import bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
-import crypto from 'crypto';
-import { pipeline } from 'stream/promises';
 import { Client as QStashClient } from '@upstash/qstash';
 
 const twofactor = require('node-2fa');
