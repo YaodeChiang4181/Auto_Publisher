@@ -44,6 +44,10 @@ export async function searchYahoo(query: string, platformLabel: string = 'Web'):
           else if (href.includes('dcard.tw')) finalPlatform = 'Dcard';
           else if (href.includes('ptt.cc')) finalPlatform = 'PTT';
           else if (href.includes('gamer.com.tw')) finalPlatform = '巴哈姆特';
+        } else if (platformLabel === 'Dcard' && !href.includes('dcard.tw')) {
+          return; // Skip if Yahoo ignored site:dcard.tw filter
+        } else if (platformLabel === 'PTT' && !href.includes('ptt.cc')) {
+          return; // Skip if Yahoo ignored site:ptt.cc filter
         }
 
         results.push({ title, snippet, url: href, platform: finalPlatform });
