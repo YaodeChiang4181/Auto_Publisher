@@ -3,7 +3,6 @@ import { prisma } from './prisma';
 import { redis } from './redis';
 import crypto from 'crypto';
 import webpush from 'web-push';
-import Redis from 'ioredis';
 import { startScheduler } from './scheduler';
 import fastifyJwt from '@fastify/jwt';
 import fastifyRateLimit from '@fastify/rate-limit';
@@ -102,8 +101,7 @@ webpush.setVapidDetails(
   vapidKeys.privateKey
 );
 
-// 為了接收 Redis 鍵值過期事件，我們需要另一個 Redis 連線 (Subscriber)
-const redisSub = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+import { fetchTrendingForEvent } from './services/trendingScraper';
 
 
 // API: Health check & Config
@@ -324,56 +322,85 @@ server.get('/api/events/active', async (_request, _reply) => {
   return events;
 });
 
+// ==========================================
+// QStash Webhooks
+// ==========================================
+
+// Webhook 1: 預熱爬蟲 (解鎖前 30 秒觸發)
+server.post('/api/webhooks/prewarm', async (request, reply) => {
+  // 注意：在正式環境中，請使用 @upstash/qstash Receiver 驗證簽章，防禦偽造請求
+  const { eventId, eventName } = request.body as any;
+  if (!eventId || !eventName) return reply.status(400).send({ error: 'Missing event details' });
+  
+  server.log.info(`[QStash] Pre-warming Scraper for Event ${eventName}`);
+  try {
+    // 預先啟動多源搜尋引擎，這會把結果寫入 Postgres (trendingResult)
+    await fetchTrendingForEvent(eventId, eventName);
+    return { success: true, message: 'Pre-warmed successfully' };
+  } catch (error) {
+    server.log.error(error as Error, '[QStash] Pre-warm failed');
+    return reply.status(500).send({ error: 'Pre-warm failed' });
+  }
+});
+
+// Webhook 2: 準點推播與解鎖 (精準於 UnlockTime 觸發)
+server.post('/api/webhooks/push', async (request, reply) => {
+  const { eventId } = request.body as any;
+  if (!eventId) return reply.status(400).send({ error: 'Missing eventId' });
+
+  server.log.info(`[QStash] Exact Unlock Triggered for Event ${eventId}`);
+  try {
+    // 1. 找出這個 Event 底下所有尚未解鎖的 Session
+    const sessions = await prisma.session.findMany({
+      where: { eventId, isUnlocked: false }
+    });
+
+    if (sessions.length === 0) return { success: true, message: 'No sessions to unlock' };
+
+    // 2. 更新資料庫狀態
+    await prisma.session.updateMany({
+      where: { eventId, isUnlocked: false },
+      data: { isUnlocked: true }
+    });
+
+    // 3. 找出所有訂閱推播的觀眾，批量發送通知
+    const pushPromises = sessions
+      .filter(s => s.pushSub)
+      .map(async (s) => {
+        try {
+          await webpush.sendNotification(
+            s.pushSub as unknown as webpush.PushSubscription,
+            JSON.stringify({ 
+              title: '彩蛋已解鎖！', 
+              body: '您觀看的活動已結束，點擊查看專屬深度討論與彩蛋解析。',
+              url: `/unlock/${eventId}`
+            })
+          );
+          // 同步更新每位使用者的 Redis 狀態快取，讓等候室瞬間放行
+          await redis.setex(`session_status:${s.browserToken}`, 3600, JSON.stringify({
+            isUnlocked: true,
+            unlockTime: new Date()
+          }));
+        } catch (e) {
+          server.log.error(e as Error, `Push failed for ${s.browserToken}`);
+        }
+      });
+      
+    await Promise.all(pushPromises);
+    server.log.info(`[QStash] Unlocked ${sessions.length} sessions and sent ${pushPromises.length} pushes.`);
+    
+    return { success: true, unlocked: sessions.length, pushes: pushPromises.length };
+  } catch (error) {
+    server.log.error(error as Error, '[QStash] Push Trigger failed');
+    return reply.status(500).send({ error: 'Push trigger failed' });
+  }
+});
+
 // Start the server
 const start = async () => {
   try {
-    // 啟動雲端常駐排程器
+    // 啟動雲端常駐排程器 (僅作輔助，核心由 QStash 負責)
     startScheduler();
-    // 啟用 Redis 的過期事件通知 (Ex)
-    await redis.config('SET', 'notify-keyspace-events', 'Ex');
-
-    // 訂閱過期事件
-    redisSub.subscribe('__keyevent@0__:expired', (err) => {
-      if (err) server.log.error(err, 'Failed to subscribe to Redis expired events');
-    });
-
-    // 處理「離場時間鎖」到期事件
-    redisSub.on('message', async (_channel, message) => {
-      if (message.startsWith('session_timelock:')) {
-        const browserToken = message.split(':')[1] as string;
-        server.log.info(`Time-Lock expired for session: ${browserToken}`);
-
-        try {
-          // 更新資料庫狀態為已解鎖
-          const session = await prisma.session.update({
-            where: { browserToken },
-            data: { isUnlocked: true },
-            include: { event: true }
-          });
-
-          // [Performance] 同步更新 Redis 中的快取狀態為已解鎖
-          await redis.setex(`session_status:${browserToken}`, 3600, JSON.stringify({
-            isUnlocked: true,
-            unlockTime: session.event?.unlockTime
-          }));
-
-          // 如果使用者有允許 Web Push，則發送推播通知
-          if (session.pushSub) {
-            await webpush.sendNotification(
-              session.pushSub as unknown as webpush.PushSubscription,
-              JSON.stringify({ 
-                title: '彩蛋已解鎖！', 
-                body: '您觀看的活動已結束，點擊查看專屬深度討論與彩蛋解析。',
-                url: `/unlock/${session.eventId}`
-              })
-            );
-            server.log.info(`Push notification sent to: ${browserToken}`);
-          }
-        } catch (err) {
-          server.log.error(err, 'Failed to handle time-lock expiration or send push');
-        }
-      }
-    });
 
     const port = Number(process.env.PORT) || 3000;
     await server.listen({ port, host: '0.0.0.0' });

@@ -6,7 +6,14 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { pipeline } from 'stream/promises';
+import { Client as QStashClient } from '@upstash/qstash';
+
 const twofactor = require('node-2fa');
+
+// QStash Client 初始化 (若無設定 TOKEN 則報錯或跳過)
+const qstash = new QStashClient({
+  token: process.env.QSTASH_TOKEN || 'mock-token-for-dev'
+});
 
 export default async function adminRoutes(server: FastifyInstance) {
   // 建立初始帳號 (緊急/測試用)
@@ -240,6 +247,40 @@ export default async function adminRoutes(server: FastifyInstance) {
         externalMeta: { source: 'manual' }
       }
     });
+
+    // ==========================================
+    // [Feature] 排程喚醒 (QStash Scheduling)
+    // 當建立活動時，預先排定未來的喚醒時間
+    // ==========================================
+    try {
+      const publicUrl = process.env.PUBLIC_URL || 'https://auto-publisher.vercel.app';
+      
+      const unlockDate = new Date(unlockTime);
+      const prewarmDate = new Date(unlockDate.getTime() - 30 * 1000); // 提前 30 秒
+
+      // 檢查時間是否在未來
+      if (prewarmDate.getTime() > Date.now() && process.env.QSTASH_TOKEN) {
+        // 1. 預熱爬蟲 (Pre-warm Scraper)
+        await qstash.publishJSON({
+          url: `${publicUrl}/api/webhooks/prewarm`,
+          body: { eventId: newEvent.id, eventName: newEvent.name },
+          notBefore: Math.floor(prewarmDate.getTime() / 1000), // UNIX timestamp (seconds)
+        });
+
+        // 2. 準點推播 (Push Notifications)
+        await qstash.publishJSON({
+          url: `${publicUrl}/api/webhooks/push`,
+          body: { eventId: newEvent.id },
+          notBefore: Math.floor(unlockDate.getTime() / 1000),
+        });
+        
+        server.log.info(`[QStash] Scheduled Webhooks for Event ${newEvent.id}`);
+      } else {
+        server.log.warn(`[QStash] Skipped scheduling: Time is in the past or QSTASH_TOKEN missing.`);
+      }
+    } catch (scheduleError) {
+      server.log.error(scheduleError, '[QStash] Failed to schedule webhooks');
+    }
 
     return newEvent;
   });
