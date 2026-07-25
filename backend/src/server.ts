@@ -150,12 +150,12 @@ server.get('/api/qr/token', async (request, reply) => {
   // Generate a short-lived token
   const token = crypto.randomBytes(16).toString('hex');
   
-  // Store token in Redis with a TTL of 10 seconds (for dynamic refresh)
+  // Store token in Redis with a TTL of 60 seconds (for dynamic refresh)
   // The value can be a JSON string with the eventId and venueId
   const tokenData = JSON.stringify({ eventId, venueId });
-  await redis.setex(`qr_token:${token}`, 10, tokenData);
+  await redis.setex(`qr_token:${token}`, 60, tokenData);
 
-  return { token, expiresIn: 10 };
+  return { token, expiresIn: 60 };
 });
 
 // API: Verify Token & Create Anonymous Session (QR Scan)
