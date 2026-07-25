@@ -1,4 +1,4 @@
-// React 17+ does not need explicit React import
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import VenueScreen from './pages/VenueScreen';
 import ScanPage from './pages/ScanPage';
@@ -14,6 +14,18 @@ const AppContent = () => {
   const isUnlock = location.pathname.startsWith('/unlock');
   // 針對後台與解鎖頁面使用較寬的排版，其餘維持 600px 手機版寬度
   const containerClass = (isDashboard || isUnlock) ? 'dashboard-container' : 'container';
+
+  useEffect(() => {
+    const isWait = location.pathname.startsWith('/wait');
+    if (isWait) {
+      document.body.classList.add('wait-room-active');
+    } else {
+      document.body.classList.remove('wait-room-active');
+    }
+    return () => {
+      document.body.classList.remove('wait-room-active');
+    };
+  }, [location.pathname]);
 
   return (
     <div className={containerClass}>

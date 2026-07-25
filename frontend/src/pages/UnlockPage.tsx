@@ -16,6 +16,18 @@ const UnlockPage = () => {
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [isCentralAd, setIsCentralAd] = useState(true);
 
+  const trackAction = async (actionType: string) => {
+    try {
+      await fetch('/api/analytics/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, actionType })
+      });
+    } catch (e) {
+      console.error('Tracking failed', e);
+    }
+  };
+
   useEffect(() => {
     if (!eventId) {
       navigate('/', { replace: true });
@@ -189,7 +201,7 @@ const UnlockPage = () => {
                   href="https://www.facebook.com/" 
                   target="_blank" 
                   rel="noreferrer"
-                  title="開啟 Facebook"
+                  onClick={() => trackAction('CLICK_SOCIAL_SHARE')}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -222,6 +234,7 @@ const UnlockPage = () => {
                   target="_blank" 
                   rel="noreferrer"
                   title="開啟 Instagram"
+                  onClick={() => trackAction('CLICK_SOCIAL_SHARE')}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -256,6 +269,7 @@ const UnlockPage = () => {
                   target="_blank" 
                   rel="noreferrer"
                   title="開啟 Threads 發文"
+                  onClick={() => trackAction('CLICK_SOCIAL_SHARE')}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -303,6 +317,7 @@ const UnlockPage = () => {
             href={currentAd.linkUrl}
             target="_blank"
             rel="noreferrer"
+            onClick={() => trackAction('CLICK_AD')}
             className="glass-panel"
             style={{
               display: 'block',

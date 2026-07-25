@@ -215,15 +215,92 @@ export default async function adminRoutes(server: FastifyInstance) {
     return { user: dbUser };
   });
 
-  // 取得所屬場館的事件
+  // 取得所屬場館的事件與統計資料
   server.get('/events', { preValidation: [server.authenticate] }, async (request, _reply) => {
     const user = request.user as any;
     const whereClause = user.role === 'SUPER_ADMIN' ? {} : { venueId: user.venueId };
     const events = await prisma.event.findMany({
       where: whereClause,
+      include: { scanStats: true },
       orderBy: { startTime: 'asc' }
     });
-    return events;
+
+    const eventsWithStats = await Promise.all(events.map(async (event) => {
+      // 1. 掃碼率 (Scan Rate)
+      const totalScans = event.scanStats?.totalScans || 0;
+      const totalAttendance = event.scanStats?.totalAttendance || null;
+      let scanRate = null;
+      if (totalAttendance && totalAttendance > 0) {
+        scanRate = (totalScans / totalAttendance) * 100;
+      }
+
+      // 2. 散場互動率 (15 分鐘內社群點擊)
+      const fifteenMinsAfterUnlock = new Date(event.unlockTime.getTime() + 15 * 60 * 1000);
+      
+      const socialShareLogs = await prisma.actionLog.findMany({
+        where: {
+          eventId: event.id,
+          actionType: 'CLICK_SOCIAL_SHARE',
+          timestamp: { lte: fifteenMinsAfterUnlock }
+        },
+        select: { sessionId: true },
+        distinct: ['sessionId']
+      });
+      const uniqueSocialShares = socialShareLogs.length;
+      const interactionRate = totalScans > 0 ? (uniqueSocialShares / totalScans) * 100 : 0;
+
+      // 3. 商業轉換率 (廣告點擊率)
+      const adClickLogs = await prisma.actionLog.findMany({
+        where: {
+          eventId: event.id,
+          actionType: 'CLICK_AD'
+        },
+        select: { sessionId: true },
+        distinct: ['sessionId']
+      });
+      const uniqueAdClicks = adClickLogs.length;
+      const ctr = totalScans > 0 ? (uniqueAdClicks / totalScans) * 100 : 0;
+
+      return {
+        ...event,
+        stats: {
+          totalAttendance,
+          totalScans,
+          scanRate,
+          interactionRate,
+          ctr
+        }
+      };
+    }));
+
+    return eventsWithStats;
+  });
+
+  // 更新活動現場總人數
+  server.put('/events/:id/attendance', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params as any;
+    const { totalAttendance } = request.body as any;
+    const userContext = request.user as any;
+
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event) return reply.status(404).send({ error: 'Event not found' });
+    
+    if (event.venueId !== userContext.venueId && userContext.role !== 'SUPER_ADMIN') {
+      return reply.status(403).send({ error: 'Permission denied' });
+    }
+
+    const attendanceNum = parseInt(totalAttendance, 10);
+    if (isNaN(attendanceNum) || attendanceNum < 0) {
+      return reply.status(400).send({ error: 'Invalid attendance number' });
+    }
+
+    await prisma.eventScanStat.upsert({
+      where: { eventId: id },
+      update: { totalAttendance: attendanceNum },
+      create: { eventId: id, totalAttendance: attendanceNum }
+    });
+    
+    return { success: true };
   });
 
   // 手動新增活動 (替代爬蟲)

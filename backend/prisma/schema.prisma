@@ -40,6 +40,7 @@ model Event {
   scanStats    EventScanStat?
   sessions     Session[]
   trendingCache TrendingResult[]
+  actionLogs   ActionLog[]
 }
 
 model PushContent {
@@ -58,6 +59,7 @@ model PushContent {
 model EventScanStat {
   id             String   @id @default(uuid())
   eventId        String   @unique
+  totalAttendance   Int?     // 現場總人數 (人工輸入)
   totalScans        Int      @default(0)
   verifiedScans     Int      @default(0)
   geoVerifiedScans  Int      @default(0)
@@ -66,6 +68,17 @@ model EventScanStat {
   updatedAt      DateTime @updatedAt
 
   event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model ActionLog {
+  id          String   @id @default(uuid())
+  sessionId   String
+  eventId     String
+  actionType  String   // "CLICK_SOCIAL_SHARE" | "CLICK_AD"
+  timestamp   DateTime @default(now())
+
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
 
 model Session {
@@ -77,6 +90,7 @@ model Session {
   pushSub        Json?    // 儲存 Web Push 訂閱物件 (endpoint, keys)
   
   event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  actionLogs     ActionLog[]
 }
 
 model AdminUser {
