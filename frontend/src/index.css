@@ -166,3 +166,34 @@ body.wait-room-active .btn-primary:hover {
   box-shadow: 0 6px 20px rgba(140, 91, 48, 0.5);
 }
 
+/* Admin Dashboard Custom Theme */
+body.admin-dashboard-active {
+  --bg-color: #593959;
+  --text-primary: #f0e6f0;
+  --text-secondary: #b89db8;
+  --accent-primary: #d59fd5;
+  --accent-secondary: #9f759f;
+  --glass-bg: rgba(255, 255, 255, 0.15);
+  --glass-border: rgba(255, 255, 255, 0.25);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+}
+
+body.admin-dashboard-active .bg-glow {
+  background: radial-gradient(circle at center, rgba(213, 159, 213, 0.2) 0%, transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(159, 117, 159, 0.15) 0%, transparent 50%);
+}
+
+body.admin-dashboard-active .title-gradient {
+  background: linear-gradient(to right, #fcf5fc, #d59fd5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+body.admin-dashboard-active .btn-primary {
+  box-shadow: 0 4px 15px rgba(213, 159, 213, 0.3);
+}
+
+body.admin-dashboard-active .btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(213, 159, 213, 0.5);
+}
+

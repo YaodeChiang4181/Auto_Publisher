@@ -17,13 +17,23 @@ const AppContent = () => {
 
   useEffect(() => {
     const isWait = location.pathname.startsWith('/wait');
+    const isAdmin = location.pathname.startsWith('/admin');
+
     if (isWait) {
       document.body.classList.add('wait-room-active');
     } else {
       document.body.classList.remove('wait-room-active');
     }
+
+    if (isAdmin) {
+      document.body.classList.add('admin-dashboard-active');
+    } else {
+      document.body.classList.remove('admin-dashboard-active');
+    }
+
     return () => {
       document.body.classList.remove('wait-room-active');
+      document.body.classList.remove('admin-dashboard-active');
     };
   }, [location.pathname]);
 
