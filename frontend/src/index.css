@@ -141,8 +141,8 @@ body.wait-room-active {
   --text-secondary: #5c4535;
   --accent-primary: #8c5b30;
   --accent-secondary: #6e401b;
-  --glass-bg: rgba(255, 255, 255, 0.2);
-  --glass-border: rgba(255, 255, 255, 0.35);
+  --glass-bg: rgba(0, 0, 0, 0.15); /* 深色板塊以凸顯於淺色背景 */
+  --glass-border: rgba(0, 0, 0, 0.1);
   --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15);
 }
 
@@ -173,8 +173,8 @@ body.admin-dashboard-active {
   --text-secondary: #cba8cb;
   --accent-primary: #d59fd5;
   --accent-secondary: #9f759f;
-  --glass-bg: rgba(30, 15, 30, 0.5);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.12); /* 淺色板塊以凸顯於深色背景 */
+  --glass-border: rgba(255, 255, 255, 0.25);
   --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
 }
 

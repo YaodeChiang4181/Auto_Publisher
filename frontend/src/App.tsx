@@ -16,8 +16,8 @@ const AppContent = () => {
   const containerClass = (isDashboard || isUnlock) ? 'dashboard-container' : 'container';
 
   useEffect(() => {
-    const isWait = location.pathname.startsWith('/wait');
-    const isAdmin = location.pathname.startsWith('/admin');
+    const isWait = location.pathname.startsWith('/wait') || location.pathname.startsWith('/scan') || location.pathname.startsWith('/unlock');
+    const isAdminOrKiosk = location.pathname.startsWith('/admin') || location.pathname.startsWith('/kiosk');
 
     if (isWait) {
       document.body.classList.add('wait-room-active');
@@ -25,7 +25,7 @@ const AppContent = () => {
       document.body.classList.remove('wait-room-active');
     }
 
-    if (isAdmin) {
+    if (isAdminOrKiosk) {
       document.body.classList.add('admin-dashboard-active');
     } else {
       document.body.classList.remove('admin-dashboard-active');
