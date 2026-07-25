@@ -191,7 +191,8 @@ server.get('/api/qr/scan', {
       if (distance <= venue.geoRadius) {
         isGeoVerified = true;
       } else {
-        return reply.status(403).send({ error: '您不在活動現場，無法解鎖內容 (Geo-fence failed)' });
+        // User is outside the geo-fence
+        isGeoVerified = false;
       }
     }
   }
@@ -209,22 +210,24 @@ server.get('/api/qr/scan', {
     }
   });
 
-  // Update EventScanStat
-  await prisma.eventScanStat.upsert({
-    where: { eventId },
-    update: {
-      totalScans: { increment: 1 },
-      verifiedScans: { increment: 1 },
-      geoVerifiedScans: isGeoVerified ? { increment: 1 } : undefined,
-      lastScannedAt: new Date()
-    },
-    create: {
-      eventId,
-      totalScans: 1,
-      verifiedScans: 1,
-      geoVerifiedScans: isGeoVerified ? 1 : 0,
-    }
-  });
+  // Update EventScanStat only if geo-verified (so unverified users are excluded from stats)
+  if (isGeoVerified) {
+    await prisma.eventScanStat.upsert({
+      where: { eventId },
+      update: {
+        totalScans: { increment: 1 },
+        verifiedScans: { increment: 1 },
+        geoVerifiedScans: { increment: 1 },
+        lastScannedAt: new Date()
+      },
+      create: {
+        eventId,
+        totalScans: 1,
+        verifiedScans: 1,
+        geoVerifiedScans: 1,
+      }
+    });
+  }
 
   // Calculate remaining time for the Event to finish (Time-Lock)
   const event = await prisma.event.findUnique({ where: { id: eventId } });
@@ -237,7 +240,8 @@ server.get('/api/qr/scan', {
   // [Performance] 將初始狀態直接快取到 Redis，避免後續輪詢打爆 DB
   await redis.setex(`session_status:${browserToken}`, ttl + 3600, JSON.stringify({
     isUnlocked: false,
-    unlockTime: event?.unlockTime
+    unlockTime: event?.unlockTime,
+    isGeoVerified: isGeoVerified
   }));
 
   // [Bugfix] 移除單次使用的 QR Token 刪除邏輯，允許多人同時掃描同一個 10 秒內的畫面

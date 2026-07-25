@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '../prisma';
+import { redis } from '../redis';
 
 export default async function analyticsRoutes(server: FastifyInstance) {
   server.post('/track', async (request, reply) => {
@@ -11,6 +12,16 @@ export default async function analyticsRoutes(server: FastifyInstance) {
     }
 
     try {
+      // Check if session was geo-verified
+      const statusStr = await redis.get(`session_status:${sessionId}`);
+      if (statusStr) {
+        const status = JSON.parse(statusStr);
+        if (status.isGeoVerified === false) {
+          // Do not track unverified users, but return success to avoid frontend errors
+          return { success: true, ignored: true };
+        }
+      }
+
       const actionLog = await prisma.actionLog.create({
         data: {
           sessionId,

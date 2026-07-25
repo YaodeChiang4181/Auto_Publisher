@@ -170,12 +170,12 @@ body.wait-room-active .btn-primary:hover {
 body.admin-dashboard-active {
   --bg-color: #593959;
   --text-primary: #f0e6f0;
-  --text-secondary: #b89db8;
+  --text-secondary: #cba8cb;
   --accent-primary: #d59fd5;
   --accent-secondary: #9f759f;
-  --glass-bg: rgba(255, 255, 255, 0.15);
-  --glass-border: rgba(255, 255, 255, 0.25);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+  --glass-bg: rgba(30, 15, 30, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
 }
 
 body.admin-dashboard-active .bg-glow {
