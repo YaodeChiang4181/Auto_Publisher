@@ -14,12 +14,15 @@ const WaitRoom = () => {
       return;
     }
 
-    const fetchStatus = async () => {
+    const eventSource = new EventSource('/api/session/sse');
+
+    eventSource.onmessage = async (event) => {
       try {
-        const res = await fetch(`/api/session/status`);
-        const data = await res.json();
+        const data = JSON.parse(event.data);
         
         if (data.isUnlocked) {
+          eventSource.close();
+          
           if (Notification.permission === 'granted') {
             try {
               const reg = await navigator.serviceWorker.ready;
@@ -37,16 +40,19 @@ const WaitRoom = () => {
           const remainingSecs = Math.max(0, Math.floor((new Date(data.unlockTime).getTime() - Date.now()) / 1000));
           setTimeLeft(remainingSecs);
         }
-      } catch (e) {
-        console.error('Status fetch error', e);
+      } catch (err) {
+        console.error('SSE Message parsing error', err);
       }
     };
 
-    fetchStatus();
-    // Polling fallback every 3s
-    const pollInterval = setInterval(fetchStatus, 3000);
+    eventSource.onerror = (err) => {
+      console.error('SSE connection error', err);
+      // EventSource 預設會自動重連，但如果真的發生錯誤可以記錄下來
+    };
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      eventSource.close();
+    };
   }, [navigate, eventId]);
 
   // Visual countdown

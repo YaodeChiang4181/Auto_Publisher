@@ -284,6 +284,97 @@ server.post('/api/push/subscribe', {
   return { success: true };
 });
 
+// API: Server-Sent Events (SSE) for unlock status
+server.get('/api/session/sse', async (request, reply) => {
+  const browserToken = request.cookies.sessionToken;
+  if (!browserToken) {
+    reply.status(401).send({ error: 'Missing session cookie' });
+    return;
+  }
+
+  // Setup SSE Headers
+  reply.raw.setHeader('Content-Type', 'text/event-stream');
+  reply.raw.setHeader('Cache-Control', 'no-cache');
+  reply.raw.setHeader('Connection', 'keep-alive');
+  // For CORS if needed, though we run on same origin
+  reply.raw.setHeader('Access-Control-Allow-Origin', '*');
+
+  let isClientConnected = true;
+  request.raw.on('close', () => {
+    isClientConnected = false;
+  });
+
+  const checkStatus = async () => {
+    if (!isClientConnected) return;
+
+    try {
+      const cachedStatus = await redis.get(`session_status:${browserToken}`);
+      if (cachedStatus) {
+        const parsed = JSON.parse(cachedStatus);
+        
+        // Lazy unlock
+        if (!parsed.isUnlocked && parsed.unlockTime && new Date() >= new Date(parsed.unlockTime)) {
+          parsed.isUnlocked = true;
+        }
+
+        if (parsed.isUnlocked) {
+          reply.raw.write(`data: ${JSON.stringify({ isUnlocked: true })}\n\n`);
+          // Note: Node's reply.raw.end() might cause Fastify to complain if called prematurely, but SSE implies manual ending.
+          reply.raw.end();
+          isClientConnected = false;
+          return;
+        } else {
+          // Send current countdown time
+          reply.raw.write(`data: ${JSON.stringify({ unlockTime: parsed.unlockTime })}\n\n`);
+        }
+      } else {
+        // Fallback to DB if Redis is cleared
+        const session = await prisma.session.findUnique({ 
+          where: { browserToken },
+          include: { event: true } 
+        });
+        
+        if (session) {
+          let isUnlocked = session.isUnlocked;
+          const unlockTime = session.event?.unlockTime;
+
+          if (!isUnlocked && unlockTime && new Date() >= new Date(unlockTime)) {
+            isUnlocked = true;
+          }
+
+          if (isUnlocked) {
+            reply.raw.write(`data: ${JSON.stringify({ isUnlocked: true })}\n\n`);
+            reply.raw.end();
+            isClientConnected = false;
+            return;
+          } else {
+            reply.raw.write(`data: ${JSON.stringify({ unlockTime })}\n\n`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[SSE Error]', err);
+    }
+  };
+
+  // Initial check
+  await checkStatus();
+
+  // Schedule internal polling every 2 seconds
+  const interval = setInterval(() => {
+    if (isClientConnected) {
+      checkStatus();
+    } else {
+      clearInterval(interval);
+    }
+  }, 2000);
+
+  // Clear interval on disconnect
+  request.raw.on('close', () => {
+    clearInterval(interval);
+  });
+});
+
 // API: Polling fallback for unlock status
 server.get('/api/session/status', {
   config: {
