@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
 import { Client as QStashClient } from '@upstash/qstash';
+import { uploadToS3 } from '../services/s3Client';
 
 const twofactor = require('node-2fa');
 
@@ -411,7 +412,7 @@ export default async function adminRoutes(server: FastifyInstance) {
     let title = '';
     let description = '';
     let linkUrl = '';
-    let imageDataUrl = '';
+    let uploadedImageUrl = '';
 
     for await (const part of parts) {
       if (part.type === 'file') {
@@ -427,8 +428,6 @@ export default async function adminRoutes(server: FastifyInstance) {
           return reply.status(400).send({ error: '副檔名異常' });
         }
 
-        // [Fix] 改為 Base64 Data URL 存入資料庫，不再依賴檔案系統
-        // 這樣在 Vercel serverless (唯讀檔案系統) 和本地開發都能正常運作
         const chunks: Buffer[] = [];
         for await (const chunk of part.file) {
           chunks.push(chunk);
@@ -440,7 +439,12 @@ export default async function adminRoutes(server: FastifyInstance) {
           return reply.status(400).send({ error: '檔案大小超過 5MB 限制' });
         }
         
-        imageDataUrl = `data:${part.mimetype};base64,${buffer.toString('base64')}`;
+        try {
+          uploadedImageUrl = await uploadToS3(buffer, part.filename, part.mimetype);
+        } catch (s3Error) {
+          server.log.error(s3Error, 'S3 Upload Error');
+          return reply.status(500).send({ error: '上傳圖片至雲端失敗' });
+        }
       } else {
         if (part.fieldname === 'title') title = part.value as string;
         if (part.fieldname === 'description') description = part.value as string;
@@ -464,7 +468,7 @@ export default async function adminRoutes(server: FastifyInstance) {
       }
     }
 
-    const imageUrl = imageDataUrl || null;
+    const imageUrl = uploadedImageUrl || null;
 
     const ad = await prisma.advertisement.create({
       data: {
