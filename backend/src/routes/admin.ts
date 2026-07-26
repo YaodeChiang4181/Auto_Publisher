@@ -5,7 +5,7 @@ import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
 import { Client as QStashClient } from '@upstash/qstash';
-import { uploadToS3 } from '../services/s3Client';
+
 
 const twofactor = require('node-2fa');
 
