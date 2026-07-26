@@ -447,12 +447,12 @@ export default async function adminRoutes(server: FastifyInstance) {
           const ext = path.extname(part.filename).toLowerCase();
           const uniqueId = require('crypto').randomBytes(8).toString('hex');
           const newFilename = `${Date.now()}-${uniqueId}${ext}`;
-          const uploadDir = path.resolve(process.cwd(), 'uploads', 'ads');
+          const uploadDir = path.resolve(process.cwd(), 'uploads', 'media');
           if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
           }
           fs.writeFileSync(path.join(uploadDir, newFilename), buffer);
-          uploadedImageUrl = `/uploads/ads/${newFilename}`;
+          uploadedImageUrl = `/uploads/media/${newFilename}`;
         }
       } else {
         if (part.fieldname === 'title') title = part.value as string;
@@ -507,10 +507,10 @@ export default async function adminRoutes(server: FastifyInstance) {
       return reply.status(403).send({ error: 'Permission denied' });
     }
 
-    // 實體刪除圖片檔案
-    if (ad.imageUrl && ad.imageUrl.startsWith('/uploads/ads/')) {
-      const filename = ad.imageUrl.replace('/uploads/ads/', '');
-      const filepath = path.resolve(process.cwd(), 'uploads', 'ads', filename);
+    // 實體刪除圖片檔案 (備案本地儲存)
+    if (ad.imageUrl && ad.imageUrl.startsWith('/uploads/media/')) {
+      const filename = ad.imageUrl.replace('/uploads/media/', '');
+      const filepath = path.resolve(process.cwd(), 'uploads', 'media', filename);
       if (fs.existsSync(filepath)) {
         fs.unlinkSync(filepath);
       }

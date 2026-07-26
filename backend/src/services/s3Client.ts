@@ -37,7 +37,7 @@ export async function uploadToS3(fileBuffer: Buffer, filename: string, contentTy
   // 產生唯一檔名避免衝突
   const ext = path.extname(filename);
   const uniqueId = crypto.randomBytes(8).toString('hex');
-  const objectKey = `ads/${Date.now()}-${uniqueId}${ext}`;
+  const objectKey = `media/${Date.now()}-${uniqueId}${ext}`;
 
   const command = new PutObjectCommand({
     Bucket: bucketName,
