@@ -440,19 +440,45 @@ export default async function adminRoutes(server: FastifyInstance) {
           return reply.status(400).send({ error: '檔案大小超過 5MB 限制' });
         }
         
+        // === 直接內嵌 S3 上傳，不依賴外部模組載入順序 ===
+        const s3Endpoint = process.env.S3_ENDPOINT;
+        const s3KeyId = process.env.S3_ACCESS_KEY_ID;
+        const s3Secret = process.env.S3_SECRET_ACCESS_KEY;
+        const s3Bucket = process.env.S3_BUCKET_NAME;
+        const s3PublicDomain = process.env.S3_PUBLIC_DOMAIN;
+
+        server.log.info(`S3 Config Check: endpoint=${s3Endpoint ? 'SET' : 'MISSING'}, keyId=${s3KeyId ? 'SET' : 'MISSING'}, bucket=${s3Bucket}, publicDomain=${s3PublicDomain}`);
+
+        if (!s3Endpoint || !s3KeyId || !s3Secret || !s3Bucket || !s3PublicDomain) {
+          return reply.status(500).send({ error: '雲端儲存 (S3) 環境變數未設定，無法上傳檔案。' });
+        }
+
         try {
-          uploadedImageUrl = await uploadToS3(buffer, part.filename, part.mimetype);
+          const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+          const s3 = new S3Client({
+            region: 'auto',
+            endpoint: s3Endpoint,
+            credentials: { accessKeyId: s3KeyId, secretAccessKey: s3Secret },
+          });
+
+          const crypto = await import('crypto');
+          const uniqueId = crypto.randomBytes(8).toString('hex');
+          const fileExt = path.extname(part.filename).toLowerCase();
+          const objectKey = `media/${Date.now()}-${uniqueId}${fileExt}`;
+
+          await s3.send(new PutObjectCommand({
+            Bucket: s3Bucket,
+            Key: objectKey,
+            Body: buffer,
+            ContentType: part.mimetype,
+          }));
+
+          const baseUrl = s3PublicDomain.endsWith('/') ? s3PublicDomain.slice(0, -1) : s3PublicDomain;
+          uploadedImageUrl = `${baseUrl}/${objectKey}`;
+          server.log.info(`S3 Upload SUCCESS: ${uploadedImageUrl}`);
         } catch (s3Error) {
-          server.log.warn(s3Error, 'S3 Upload Error or not configured. Falling back to local storage.');
-          const ext = path.extname(part.filename).toLowerCase();
-          const uniqueId = require('crypto').randomBytes(8).toString('hex');
-          const newFilename = `${Date.now()}-${uniqueId}${ext}`;
-          const uploadDir = path.resolve(process.cwd(), 'uploads', 'media');
-          if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-          }
-          fs.writeFileSync(path.join(uploadDir, newFilename), buffer);
-          uploadedImageUrl = `/uploads/media/${newFilename}`;
+          server.log.error(s3Error, 'S3 Upload FAILED');
+          return reply.status(500).send({ error: '上傳圖片至雲端失敗，請稍後再試。' });
         }
       } else {
         if (part.fieldname === 'title') title = part.value as string;
