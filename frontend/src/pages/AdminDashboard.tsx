@@ -634,6 +634,9 @@ const AdminDashboard = () => {
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>圖片或動畫 (最大 5MB, 選填)</label>
                   <input id="adFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
+                  <div style={{ fontSize: '0.8rem', color: '#ffcc00', marginTop: '0.5rem' }}>
+                    ⚠️ 請注意展覽尺寸建議比例為（16：9）或橫幅長條圖（高度 160px），以確保最佳展示效果。
+                  </div>
                   {adFile && (
                     <div style={{ marginTop: '1rem', border: '1px dashed rgba(255,255,255,0.3)', padding: '0.5rem', borderRadius: '8px', textAlign: 'center' }}>
                       <p style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', marginBottom: '0.5rem' }}>上傳前預覽 (直接讀取本地檔案，未使用 Base64)</p>
