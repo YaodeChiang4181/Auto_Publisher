@@ -634,6 +634,12 @@ const AdminDashboard = () => {
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>圖片或動畫 (最大 5MB, 選填)</label>
                   <input id="adFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
+                  {adFile && (
+                    <div style={{ marginTop: '1rem', border: '1px dashed rgba(255,255,255,0.3)', padding: '0.5rem', borderRadius: '8px', textAlign: 'center' }}>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', marginBottom: '0.5rem' }}>上傳前預覽 (直接讀取本地檔案，未使用 Base64)</p>
+                      <img src={URL.createObjectURL(adFile)} alt="預覽" style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '4px', objectFit: 'contain' }} />
+                    </div>
+                  )}
                 </div>
                 <button type="submit" disabled={isUploading} style={{ marginTop: '0.5rem', padding: '0.8rem', background: 'var(--accent-primary)', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                   {isUploading ? '上傳中...' : '上傳廣告'}
