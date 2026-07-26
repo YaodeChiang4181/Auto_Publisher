@@ -443,8 +443,16 @@ export default async function adminRoutes(server: FastifyInstance) {
         try {
           uploadedImageUrl = await uploadToS3(buffer, part.filename, part.mimetype);
         } catch (s3Error) {
-          server.log.error(s3Error, 'S3 Upload Error');
-          return reply.status(500).send({ error: '上傳圖片至雲端失敗' });
+          server.log.warn(s3Error, 'S3 Upload Error or not configured. Falling back to local storage.');
+          const ext = path.extname(part.filename).toLowerCase();
+          const uniqueId = require('crypto').randomBytes(8).toString('hex');
+          const newFilename = `${Date.now()}-${uniqueId}${ext}`;
+          const uploadDir = path.resolve(process.cwd(), 'uploads', 'ads');
+          if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+          }
+          fs.writeFileSync(path.join(uploadDir, newFilename), buffer);
+          uploadedImageUrl = `/uploads/ads/${newFilename}`;
         }
       } else {
         if (part.fieldname === 'title') title = part.value as string;
