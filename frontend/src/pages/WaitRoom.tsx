@@ -32,7 +32,7 @@ const WaitRoom = () => {
         if (data.isUnlocked) {
           eventSource.close();
           
-          if (Notification.permission === 'granted') {
+          if ('Notification' in window && Notification.permission === 'granted') {
             try {
               const reg = await navigator.serviceWorker.ready;
               await reg.showNotification(`彩蛋已解鎖！`, {
@@ -76,6 +76,9 @@ const WaitRoom = () => {
 
   const enablePush = async () => {
     try {
+      if (!('Notification' in window)) {
+        throw new Error('此瀏覽器不支援推播通知');
+      }
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         // Retrieve public key from backend (via /api/health to bypass Vite proxy issues without restart)
