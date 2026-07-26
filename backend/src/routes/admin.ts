@@ -412,6 +412,7 @@ export default async function adminRoutes(server: FastifyInstance) {
     let title = '';
     let description = '';
     let linkUrl = '';
+    let type = 'VENUE';
     let uploadedImageUrl = '';
 
     for await (const part of parts) {
@@ -449,6 +450,7 @@ export default async function adminRoutes(server: FastifyInstance) {
         if (part.fieldname === 'title') title = part.value as string;
         if (part.fieldname === 'description') description = part.value as string;
         if (part.fieldname === 'linkUrl') linkUrl = part.value as string;
+        if (part.fieldname === 'type') type = part.value as string;
       }
     }
 
@@ -476,7 +478,7 @@ export default async function adminRoutes(server: FastifyInstance) {
         description,
         linkUrl,
         imageUrl,
-        type: 'VENUE',
+        type: type === 'OFFICIAL_REVIEW' ? 'OFFICIAL_REVIEW' : 'VENUE',
         venueId: user.venueId
       }
     });

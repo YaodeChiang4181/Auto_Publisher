@@ -18,6 +18,7 @@ const AdminDashboard = () => {
   const [adTitle, setAdTitle] = useState('');
   const [adDescription, setAdDescription] = useState('');
   const [adLinkUrl, setAdLinkUrl] = useState('');
+  const [adType, setAdType] = useState('VENUE');
   const [adFile, setAdFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -315,6 +316,7 @@ const AdminDashboard = () => {
       formData.append('title', adTitle);
       formData.append('description', adDescription);
       formData.append('linkUrl', adLinkUrl);
+      formData.append('type', adType);
       if (adFile) {
         formData.append('image', adFile);
       }
@@ -605,8 +607,21 @@ const AdminDashboard = () => {
               <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-primary)' }}>上傳新廣告</h3>
               <form onSubmit={handleUploadAd} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>廣告標題</label>
-                  <input type="text" value={adTitle} onChange={e => setAdTitle(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：超值爆米花套餐" />
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>廣告類型</label>
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <input type="radio" name="adType" value="VENUE" checked={adType === 'VENUE'} onChange={() => setAdType('VENUE')} />
+                      一般視覺廣告
+                    </label>
+                    <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <input type="radio" name="adType" value="OFFICIAL_REVIEW" checked={adType === 'OFFICIAL_REVIEW'} onChange={() => setAdType('OFFICIAL_REVIEW')} />
+                      官方深度解析
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>{adType === 'OFFICIAL_REVIEW' ? '解析標題' : '廣告標題'}</label>
+                  <input type="text" value={adTitle} onChange={e => setAdTitle(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder={adType === 'OFFICIAL_REVIEW' ? "例如：導演親自解析：結尾的三個隱喻" : "例如：超值爆米花套餐"} />
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>廣告描述</label>
@@ -636,13 +651,16 @@ const AdminDashboard = () => {
                   </div>
                 ) : (
                   ads.map(ad => (
-                    <div key={ad.id} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column' }}>
+                    <div key={ad.id} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                      <div style={{ position: 'absolute', top: 5, left: 5, background: ad.type === 'OFFICIAL_REVIEW' ? 'rgba(250, 204, 21, 0.9)' : 'rgba(0, 163, 255, 0.9)', color: 'black', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', zIndex: 10, fontWeight: 'bold' }}>
+                        {ad.type === 'OFFICIAL_REVIEW' ? '官方解析' : '視覺廣告'}
+                      </div>
                       {ad.imageUrl && (
                         <div style={{ height: '120px', width: '100%', overflow: 'hidden' }}>
                           <img src={ad.imageUrl} alt={ad.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                       )}
-                      <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column', paddingTop: ad.imageUrl ? '1rem' : '2rem' }}>
                         <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>{ad.title}</h4>
                         <p className="text-muted" style={{ fontSize: '0.8rem', marginBottom: '1rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                           {ad.description || '無描述'}

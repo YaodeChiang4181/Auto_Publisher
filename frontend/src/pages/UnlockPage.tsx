@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, MessageCircle, Globe, MessagesSquare, Loader2, LockKeyhole } from 'lucide-react';
+import { ExternalLink, MessageCircle, Globe, MessagesSquare, Loader2, LockKeyhole, Star } from 'lucide-react';
 
 const UnlockPage = () => {
   const navigate = useNavigate();
@@ -10,7 +10,8 @@ const UnlockPage = () => {
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [content, setContent] = useState<{
     trending: any[],
-    ads: { central: any[], venue: any[] }
+    ads: { central: any[], venue: any[] },
+    officialReview?: any
   } | null>(null);
   
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
@@ -150,7 +151,7 @@ const UnlockPage = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '3rem' }}>
         {content?.trending && content.trending.length > 0 ? (
           <>
-            {content.trending.map((item, idx) => (
+            {(content.officialReview ? content.trending.slice(0, 2) : content.trending.slice(0, 3)).map((item, idx) => (
               <a 
                 key={idx}
                 href={item.url}
@@ -192,6 +193,48 @@ const UnlockPage = () => {
                 </div>
               </a>
             ))}
+
+            {content.officialReview && (
+              <a 
+                href={content.officialReview.linkUrl || '#'}
+                target="_blank"
+                rel="noreferrer"
+                className="glass-panel" 
+                style={{ 
+                  padding: '1.5rem', 
+                  display: 'flex', 
+                  alignItems: 'flex-start', 
+                  gap: '1.5rem', 
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  transition: 'transform 0.3s, box-shadow 0.3s', 
+                  borderLeft: `4px solid #facc15` 
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateX(8px)';
+                  e.currentTarget.style.boxShadow = `0 4px 20px rgba(250, 204, 21, 0.4)`;
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ background: 'rgba(250, 204, 21, 0.1)', padding: '1rem', borderRadius: '12px', flexShrink: 0 }}>
+                  <Star size={28} color="#facc15" fill="#facc15" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <h3 style={{ marginBottom: '0.5rem', fontSize: '1.1rem', color: '#facc15', lineHeight: 1.4, fontWeight: 'bold' }}>
+                      *{content.officialReview.title}*
+                    </h3>
+                    {content.officialReview.linkUrl && <ExternalLink size={16} color="#facc15" style={{ flexShrink: 0, marginLeft: '0.5rem' }} />}
+                  </div>
+                  <p className="text-muted" style={{ fontSize: '0.9rem', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {content.officialReview.description}
+                  </p>
+                </div>
+              </a>
+            )}
             
             {/* Social Media Links for guiding posting */}
             <div style={{ marginTop: '2rem', textAlign: 'center' }}>

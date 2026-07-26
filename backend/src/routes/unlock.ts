@@ -49,12 +49,19 @@ export default async function unlockRoutes(server: FastifyInstance) {
         where: { venueId: event.venueId, type: 'VENUE' }
       });
 
+      const officialReviews = await prisma.advertisement.findMany({
+        where: { venueId: event.venueId, type: 'OFFICIAL_REVIEW' },
+        orderBy: { createdAt: 'desc' },
+        take: 1
+      });
+
       return {
         trending,
         ads: {
           central: centralAds,
           venue: venueAds
-        }
+        },
+        officialReview: officialReviews.length > 0 ? officialReviews[0] : null
       };
     } catch (error) {
       console.error(error);
