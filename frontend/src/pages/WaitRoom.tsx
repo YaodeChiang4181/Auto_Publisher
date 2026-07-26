@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, BellOff, LockKeyhole, Sparkles } from 'lucide-react';
+import { Bell, BellOff, LockKeyhole, Sparkles, AlertTriangle } from 'lucide-react';
+
+const isIos = () => {
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  return /iphone|ipad|ipod/.test(userAgent);
+};
+
+const isInStandaloneMode = () => {
+  return ('standalone' in window.navigator) && (window.navigator as any).standalone;
+};
 
 const WaitRoom = () => {
   const navigate = useNavigate();
@@ -63,6 +72,8 @@ const WaitRoom = () => {
     return () => clearInterval(timer);
   }, []);
 
+  const showIosPrompt = isIos() && !isInStandaloneMode();
+
   const enablePush = async () => {
     try {
       const permission = await Notification.requestPermission();
@@ -111,7 +122,17 @@ const WaitRoom = () => {
         活動尚未結束，為了維持最純粹的體驗，深度解析與彩蛋將在 {timeLeft > 0 ? `${timeLeft}秒後` : '即將'} 自動解鎖。
       </p>
 
-      {pushStatus === 'prompt' && (
+      {showIosPrompt && (
+        <div style={{ background: 'rgba(250, 204, 21, 0.1)', padding: '1.5rem', borderRadius: '16px', marginBottom: '1.5rem', border: '1px solid rgba(250, 204, 21, 0.3)' }}>
+          <AlertTriangle size={32} color="#facc15" style={{ margin: '0 auto', display: 'block', marginBottom: '1rem' }} />
+          <h3 style={{ color: '#facc15', marginBottom: '0.5rem' }}>iOS 系統用戶注意！</h3>
+          <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: 0 }}>
+            煩請點擊下方分享按鈕將網頁「加入主畫面」，並從主畫面開啟，這樣您才會收到最即時的推播資訊喔！
+          </p>
+        </div>
+      )}
+
+      {pushStatus === 'prompt' && !showIosPrompt && (
         <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '16px' }}>
           <Bell size={32} color="var(--accent-primary)" style={{ margin: '0 auto', display: 'block', marginBottom: '1rem' }} />
           <h3 style={{ marginBottom: '0.5rem' }}>不想乾等？</h3>
