@@ -24,7 +24,7 @@ const AdminDashboard = () => {
   // Manual event state
   const [newEventName, setNewEventName] = useState('');
   const [newEventStartTime, setNewEventStartTime] = useState('');
-  const [newEventUnlockTime, setNewEventUnlockTime] = useState('');
+  const [newEventDuration, setNewEventDuration] = useState('');
 
   // 2FA state
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
@@ -217,13 +217,17 @@ const AdminDashboard = () => {
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const startTimeDate = new Date(newEventStartTime);
+      const durationMins = parseInt(newEventDuration, 10) || 0;
+      const unlockTimeDate = new Date(startTimeDate.getTime() + durationMins * 60000);
+
       const res = await fetch('/api/admin/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           name: newEventName, 
-          startTime: new Date(newEventStartTime).toISOString(), 
-          unlockTime: new Date(newEventUnlockTime).toISOString() 
+          startTime: startTimeDate.toISOString(), 
+          unlockTime: unlockTimeDate.toISOString() 
         })
       });
       const data = await res.json();
@@ -231,7 +235,7 @@ const AdminDashboard = () => {
       setEvents([...events, data].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()));
       setNewEventName('');
       setNewEventStartTime('');
-      setNewEventUnlockTime('');
+      setNewEventDuration('');
       alert('活動建立成功！');
     } catch (e: any) {
       alert(e.message);
@@ -503,8 +507,8 @@ const AdminDashboard = () => {
               <input type="datetime-local" value={newEventStartTime} onChange={e => setNewEventStartTime(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
             </div>
             <div style={{ flex: '1 1 200px' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>結束/解鎖時間</label>
-              <input type="datetime-local" value={newEventUnlockTime} onChange={e => setNewEventUnlockTime(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>活動時長 (分鐘)</label>
+              <input type="number" min="1" value={newEventDuration} onChange={e => setNewEventDuration(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：120" />
             </div>
             <button type="submit" style={{ flex: '0 0 auto', padding: '0.6rem 1.5rem', background: 'var(--accent-primary)', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '39px' }}>
               建立
