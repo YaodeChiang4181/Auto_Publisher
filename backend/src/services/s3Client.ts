@@ -2,24 +2,30 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import crypto from 'crypto';
 import path from 'path';
 
-// Parse endpoint config
-const endpoint = process.env.S3_ENDPOINT;
-const accessKeyId = process.env.S3_ACCESS_KEY_ID;
-const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
-const bucketName = process.env.S3_BUCKET_NAME;
-const publicDomain = process.env.S3_PUBLIC_DOMAIN;
-
 let s3Client: S3Client | null = null;
+let bucketName = '';
+let publicDomain = '';
 
-if (endpoint && accessKeyId && secretAccessKey) {
-  s3Client = new S3Client({
-    region: 'auto', // R2 allows 'auto' or 'us-east-1'
-    endpoint: endpoint,
-    credentials: {
-      accessKeyId,
-      secretAccessKey,
-    },
-  });
+function getS3Client() {
+  if (s3Client) return s3Client;
+  
+  const endpoint = process.env.S3_ENDPOINT;
+  const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+  bucketName = process.env.S3_BUCKET_NAME || '';
+  publicDomain = process.env.S3_PUBLIC_DOMAIN || '';
+
+  if (endpoint && accessKeyId && secretAccessKey) {
+    s3Client = new S3Client({
+      region: 'auto',
+      endpoint: endpoint,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+    });
+  }
+  return s3Client;
 }
 
 /**
@@ -30,7 +36,9 @@ if (endpoint && accessKeyId && secretAccessKey) {
  * @returns 檔案的公開網址 (URL)
  */
 export async function uploadToS3(fileBuffer: Buffer, filename: string, contentType: string): Promise<string> {
-  if (!s3Client || !bucketName || !publicDomain) {
+  const client = getS3Client();
+  
+  if (!client || !bucketName || !publicDomain) {
     throw new Error('S3/R2 configuration is missing in environment variables.');
   }
 
@@ -46,7 +54,7 @@ export async function uploadToS3(fileBuffer: Buffer, filename: string, contentTy
     ContentType: contentType,
   });
 
-  await s3Client.send(command);
+  await client.send(command);
 
   // 回傳公開可存取的 URL
   // 移除網址結尾的斜線，確保拼接正確
