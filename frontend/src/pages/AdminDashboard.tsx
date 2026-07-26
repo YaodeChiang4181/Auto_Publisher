@@ -389,9 +389,9 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 350px), 1fr))', gap: '2rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', marginBottom: '2rem' }}>
         {/* Venue Location Settings */}
-        <div className="glass-panel" style={{ padding: '2rem' }}>
+        <div className="glass-panel" style={{ flex: '1 1 300px', width: '100%', padding: '2rem' }}>
           <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'white' }}>場域地理圍欄設定</h2>
           <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>
             設定此場館的地理邊界，以及場館顯示名稱。在半徑外掃描 QR Code 的使用者將會被標記為未驗證狀態。
@@ -460,7 +460,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Security Settings */}
-        <div className="glass-panel" style={{ padding: '2rem' }}>
+        <div className="glass-panel" style={{ flex: '1 1 300px', width: '100%', padding: '2rem' }}>
           <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'white' }}>安全設定</h2>
           
           <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -526,16 +526,16 @@ const AdminDashboard = () => {
           ) : (
             events.map((event) => (
               <div key={event.id} style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                <div style={{ textAlign: 'left' }}>
+                <div style={{ textAlign: 'left', flex: '1 1 200px' }}>
                   <div style={{ fontWeight: 600, fontSize: '1.2rem', color: '#fff', marginBottom: '0.5rem' }}>{event.name}</div>
                   <div className="text-muted" style={{ fontSize: '0.9rem' }}>開始： {new Date(event.startTime).toLocaleString()}</div>
                   <div className="text-muted" style={{ fontSize: '0.9rem' }}>結束： {new Date(event.unlockTime).toLocaleString()}</div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => handleDeleteEvent(event.id)} style={{ background: 'rgba(255, 60, 60, 0.2)', border: '1px solid #ff3c3c', color: '#ff3c3c', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', width: '100%', justifyContent: 'flex-start' }}>
+                  <button onClick={() => handleDeleteEvent(event.id)} style={{ flex: '1 1 100px', minWidth: '80px', background: 'rgba(255, 60, 60, 0.2)', border: '1px solid #ff3c3c', color: '#ff3c3c', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
                     刪除
                   </button>
-                  <button onClick={() => handleStartKiosk(event.id, event.venueId)} style={{ background: 'rgba(0, 163, 255, 0.2)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                  <button onClick={() => handleStartKiosk(event.id, event.venueId)} style={{ flex: '2 1 150px', minWidth: '120px', background: 'rgba(0, 163, 255, 0.2)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
                     啟動數位看板
                   </button>
                 </div>
@@ -545,9 +545,9 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 350px), 1fr))', gap: '2rem', marginTop: '2rem' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', marginTop: '2rem' }}>
         {/* Statistics Panel */}
-        <div className="glass-panel" style={{ padding: '2rem' }}>
+        <div className="glass-panel" style={{ flex: '1 1 300px', width: '100%', padding: '2rem' }}>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', color: 'white' }}>活動數據統計</h2>
           {events.length === 0 ? (
             <p className="text-muted">目前沒有活動</p>
@@ -595,7 +595,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Dynamic Ads Management */}
-        <div className="glass-panel" style={{ padding: '2rem' }}>
+        <div className="glass-panel" style={{ flex: '1 1 300px', width: '100%', padding: '2rem' }}>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'white' }}>動態廣告管理</h2>
           <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>
             上傳場館專屬的動態廣告。廣告將會在使用者的解鎖頁面中，每 10 秒與平台全域廣告輪播一次。支援格式：JPG, PNG, WEBP, GIF (最大 5MB)。
