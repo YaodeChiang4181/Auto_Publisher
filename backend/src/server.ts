@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import Fastify from 'fastify';
 import { prisma } from './prisma';
 import { redis } from './redis';
