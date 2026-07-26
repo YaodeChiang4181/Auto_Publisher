@@ -196,7 +196,7 @@ const UnlockPage = () => {
 
             {content.officialReview && (
               <a 
-                href={content.officialReview.linkUrl || '#'}
+                href={content.officialReview.linkUrl || content.officialReview.imageUrl || '#'}
                 target="_blank"
                 rel="noreferrer"
                 className="glass-panel" 
@@ -227,7 +227,7 @@ const UnlockPage = () => {
                     <h3 style={{ marginBottom: '0.5rem', fontSize: '1.1rem', color: '#facc15', lineHeight: 1.4, fontWeight: 'bold' }}>
                       *{content.officialReview.title}*
                     </h3>
-                    {content.officialReview.linkUrl && <ExternalLink size={16} color="#facc15" style={{ flexShrink: 0, marginLeft: '0.5rem' }} />}
+                    {(content.officialReview.linkUrl || content.officialReview.imageUrl) && <ExternalLink size={16} color="#facc15" style={{ flexShrink: 0, marginLeft: '0.5rem' }} />}
                   </div>
                   <p className="text-muted" style={{ fontSize: '0.9rem', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {content.officialReview.description}
