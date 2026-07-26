@@ -173,13 +173,13 @@ const VenueScreen = () => {
         {selectedEvent.venue.name}
       </p>
 
-      <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', display: 'inline-block', boxShadow: '0 0 40px rgba(0, 163, 255, 0.2)' }}>
+      <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', width: '100%', maxWidth: '420px', aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 40px rgba(0, 163, 255, 0.2)' }}>
         {token ? (
-          <a href={scanUrl} target="_blank" rel="noreferrer" title="點擊模擬掃描">
-            <QRCodeSVG value={scanUrl} size={360} />
+          <a href={scanUrl} target="_blank" rel="noreferrer" title="點擊模擬掃描" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <QRCodeSVG value={scanUrl} style={{ width: '100%', height: '100%' }} />
           </a>
         ) : (
-          <div style={{ width: 360, height: 360, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontSize: '1.5rem' }}>
+          <div style={{ color: '#000', fontSize: '1.5rem' }}>
             載入動態碼中...
           </div>
         )}

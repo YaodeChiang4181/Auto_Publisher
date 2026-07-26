@@ -389,7 +389,7 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 350px), 1fr))', gap: '2rem', marginBottom: '2rem' }}>
         {/* Venue Location Settings */}
         <div className="glass-panel" style={{ padding: '2rem' }}>
           <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'white' }}>場域地理圍欄設定</h2>
@@ -545,7 +545,7 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 350px), 1fr))', gap: '2rem', marginTop: '2rem' }}>
         {/* Statistics Panel */}
         <div className="glass-panel" style={{ padding: '2rem' }}>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', color: 'white' }}>活動數據統計</h2>
