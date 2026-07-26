@@ -368,9 +368,9 @@ const AdminDashboard = () => {
 
   return (
     <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
         <h1 className="title-gradient" style={{ fontSize: '2rem', margin: 0 }}>AutoPublisher B2B</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <span className="text-muted">歡迎, {user?.name || user?.username}</span>
           <button 
             onClick={handleLogout}
@@ -401,7 +401,7 @@ const AdminDashboard = () => {
               <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>場館名稱 (顯示在 Kiosk 數位看板)</label>
               <input type="text" value={venueName} onChange={e => setVenueName(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：信義威秀影城" />
             </div>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>緯度 (Latitude)</label>
                 <input type="text" value={geoLat} onChange={e => setGeoLat(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
@@ -525,7 +525,7 @@ const AdminDashboard = () => {
             </div>
           ) : (
             events.map((event) => (
-              <div key={event.id} style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div key={event.id} style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontWeight: 600, fontSize: '1.2rem', color: '#fff', marginBottom: '0.5rem' }}>{event.name}</div>
                   <div className="text-muted" style={{ fontSize: '0.9rem' }}>開始： {new Date(event.startTime).toLocaleString()}</div>
