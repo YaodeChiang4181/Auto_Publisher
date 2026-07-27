@@ -1,8 +1,6 @@
 import { FastifyInstance } from 'fastify';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma';
 import bcrypt from 'bcryptjs';
-
-const prisma = new PrismaClient();
 
 export default async function superadminRoutes(server: FastifyInstance) {
   // Middleware: Require authentication AND SUPER_ADMIN role
