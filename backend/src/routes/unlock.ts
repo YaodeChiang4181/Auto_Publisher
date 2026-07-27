@@ -16,9 +16,21 @@ export default async function unlockRoutes(server: FastifyInstance) {
         return reply.status(404).send({ error: 'Event not found' });
       }
 
-      // 取得全域與場館專屬廣告
+      const now = new Date();
       const centralAds = await prisma.advertisement.findMany({
-        where: { type: 'CENTRAL' }
+        where: { 
+          type: 'CENTRAL',
+          OR: [
+            { campaignId: null },
+            {
+              campaign: {
+                isActive: true,
+                startDate: { lte: now },
+                endDate: { gte: now }
+              }
+            }
+          ]
+        }
       });
       
       const venueAds = await prisma.advertisement.findMany({
@@ -71,8 +83,21 @@ export default async function unlockRoutes(server: FastifyInstance) {
       const trending = await fetchTrendingForEvent(eventId, event.name);
 
       // 2. Get Ads (Central + Venue specific)
+      const now = new Date();
       const centralAds = await prisma.advertisement.findMany({
-        where: { type: 'CENTRAL' }
+        where: { 
+          type: 'CENTRAL',
+          OR: [
+            { campaignId: null },
+            {
+              campaign: {
+                isActive: true,
+                startDate: { lte: now },
+                endDate: { gte: now }
+              }
+            }
+          ]
+        }
       });
       
       const venueAds = await prisma.advertisement.findMany({

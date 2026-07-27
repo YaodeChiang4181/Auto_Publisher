@@ -12,11 +12,14 @@ model Venue {
   geoLat      Float
   geoLng      Float
   geoRadius   Float    // in meters
-  externalId  String?  @unique // 泛用型外部對接 ID (非必填)
-  externalMeta Json?   // 泛用型外部對接擴充資料 (例如：儲存多個售票系統的 ID 映射)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  externalId   String?  @unique // 泛用型外部對接 ID (非必填)
+  externalMeta Json?    // 泛用型外部對接擴充資料 (例如：儲存多個售票系統的 ID 映射)
+  isActive     Boolean  @default(true)
+  contactName  String?
+  contactPhone String?
+  status       String   @default("ACTIVE") // ACTIVE, SUSPENDED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   events      Event[]
   adminUsers  AdminUser[]
@@ -118,7 +121,24 @@ model Advertisement {
   type        String   @default("CENTRAL") // "CENTRAL" or "VENUE"
   venueId     String?
   venue       Venue?   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  campaignId  String?
+  campaign    AdCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  clickCount  Int      @default(0)
+  viewCount   Int      @default(0)
   createdAt   DateTime @default(now())
+}
+
+model AdCampaign {
+  id           String   @id @default(uuid())
+  title        String
+  sponsor      String
+  startDate    DateTime
+  endDate      DateTime
+  isActive     Boolean  @default(true)
+  targetVenues String?  // JSON Array of Venue IDs, null = 全區聯播
+  createdAt    DateTime @default(now())
+  
+  ads          Advertisement[]
 }
 
 model TrendingResult {

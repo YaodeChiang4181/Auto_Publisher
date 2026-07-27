@@ -14,6 +14,7 @@ import path from 'path';
 import adminRoutes from './routes/admin';
 import unlockRoutes from './routes/unlock';
 import analyticsRoutes from './routes/analytics';
+import superadminRoutes from './routes/superadmin';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -129,6 +130,7 @@ server.get('/api/health', async (_request, _reply) => {
 server.register(adminRoutes, { prefix: '/api/admin' });
 server.register(unlockRoutes, { prefix: '/api/unlock' });
 server.register(analyticsRoutes, { prefix: '/api/analytics' });
+server.register(superadminRoutes, { prefix: '/api/superadmin' });
 
 // API: Generate Dynamic QR Code Token
 // Request expects: ?eventId=xxx&venueId=yyy
