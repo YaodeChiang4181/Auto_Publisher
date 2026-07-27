@@ -4,6 +4,36 @@ import { fetchTrendingForEvent } from '../services/trendingScraper';
 
 export default async function unlockRoutes(server: FastifyInstance) {
   
+  // 取得特定活動的廣告 (不限解鎖狀態，供候車室使用)
+  server.get('/ads/:eventId', async (request, reply) => {
+    const { eventId } = request.params as any;
+    try {
+      const event = await prisma.event.findUnique({
+        where: { id: eventId }
+      });
+
+      if (!event) {
+        return reply.status(404).send({ error: 'Event not found' });
+      }
+
+      // 取得全域與場館專屬廣告
+      const centralAds = await prisma.advertisement.findMany({
+        where: { type: 'CENTRAL' }
+      });
+      
+      const venueAds = await prisma.advertisement.findMany({
+        where: { venueId: event.venueId, type: 'VENUE' }
+      });
+
+      return {
+        central: centralAds,
+        venue: venueAds
+      };
+    } catch (error) {
+      console.error(error);
+      return reply.status(500).send({ error: 'Internal Server Error' });
+    }
+  });
   server.get('/content/:eventId', async (request, reply) => {
     const { eventId } = request.params as any;
     const sessionToken = request.cookies.sessionToken;

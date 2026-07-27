@@ -17,6 +17,63 @@ const WaitRoom = () => {
   const [timeLeft, setTimeLeft] = useState(15); // dummy countdown for visual
   const eventId = localStorage.getItem('eventId');
 
+  const [ads, setAds] = useState<{ central: any[], venue: any[] }>({ central: [], venue: [] });
+  const [currentAdIndex, setCurrentAdIndex] = useState(0);
+  const [isCentralAd, setIsCentralAd] = useState(true);
+
+  const trackAction = async (actionType: string) => {
+    try {
+      await fetch('/api/analytics/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, actionType })
+      });
+    } catch (e) {}
+  };
+
+  // Fetch Ads for WaitRoom
+  useEffect(() => {
+    if (!eventId) return;
+    const fetchAds = async () => {
+      try {
+        const res = await fetch(`/api/unlock/ads/${eventId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setAds(data);
+          if (data.central?.length === 0 && data.venue?.length > 0) {
+            setIsCentralAd(false);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch ads', e);
+      }
+    };
+    fetchAds();
+  }, [eventId]);
+
+  // Ad rotation logic
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsCentralAd(prev => {
+        const willBeCentral = !prev;
+        const adArray = willBeCentral ? ads.central : ads.venue;
+        
+        if (!adArray || adArray.length === 0) {
+          const currentArray = prev ? ads.central : ads.venue;
+          if (currentArray && currentArray.length > 0) {
+             setCurrentAdIndex(idx => (idx + 1) % currentArray.length);
+          }
+          return prev; 
+        }
+        
+        setCurrentAdIndex(0);
+        return willBeCentral;
+      });
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [ads]);
+
   useEffect(() => {
     if (!eventId) {
       navigate('/', { replace: true });
@@ -166,6 +223,86 @@ const WaitRoom = () => {
           </p>
         </div>
       )}
+
+      {/* Interactive Ad Block for Wait Room */}
+      {(() => {
+        const currentAdArray = isCentralAd ? ads.central : ads.venue;
+        const currentAd = currentAdArray && currentAdArray.length > 0 ? currentAdArray[currentAdIndex] : null;
+        
+        if (!currentAd) return null;
+        
+        return (
+          <div style={{ marginTop: '2rem' }}>
+            {currentAd.linkUrl ? (
+              <a 
+                href={currentAd.linkUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => trackAction('CLICK_AD')}
+                className="glass-panel"
+                style={{
+                  display: 'block',
+                  padding: 0,
+                  overflow: 'hidden',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  position: 'relative',
+                  transition: 'transform 0.3s',
+                  animation: 'fade-in 0.5s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#fff', zIndex: 10 }}>
+                  Sponsored ({currentAd.type === 'CENTRAL' ? 'Platform' : 'Venue'})
+                </div>
+                {currentAd.imageUrl && (
+                  <div style={{ width: '100%', height: '160px', overflow: 'hidden' }}>
+                    <img src={currentAd.imageUrl} alt="Ad" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                )}
+                <div style={{ padding: '1.5rem', background: 'linear-gradient(to right, rgba(255,255,255,0.05), transparent)', textAlign: 'left' }}>
+                  <h3 style={{ fontSize: '1.2rem', color: 'var(--accent-primary)', marginBottom: '0.5rem' }}>{currentAd.title}</h3>
+                  <p className="text-muted" style={{ fontSize: '0.9rem' }}>{currentAd.description}</p>
+                </div>
+              </a>
+            ) : (
+              <div 
+                className="glass-panel"
+                style={{
+                  display: 'block',
+                  padding: 0,
+                  overflow: 'hidden',
+                  color: 'inherit',
+                  position: 'relative',
+                  animation: 'fade-in 0.5s',
+                  textAlign: 'left'
+                }}
+              >
+                <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.6)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', color: '#fff', zIndex: 10 }}>
+                  Sponsored ({currentAd.type === 'CENTRAL' ? 'Platform' : 'Venue'})
+                </div>
+                {currentAd.imageUrl && (
+                  <div style={{ width: '100%', height: '160px', overflow: 'hidden' }}>
+                    <img src={currentAd.imageUrl} alt="Ad" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                )}
+                <div style={{ padding: '1.5rem', background: 'linear-gradient(to right, rgba(255,255,255,0.05), transparent)' }}>
+                  <h3 style={{ fontSize: '1.2rem', color: 'var(--accent-primary)', marginBottom: '0.5rem' }}>{currentAd.title}</h3>
+                  <p className="text-muted" style={{ fontSize: '0.9rem' }}>{currentAd.description}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+      
+      <style>{`
+        @keyframes fade-in {
+          0% { opacity: 0; transform: translateY(20px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 };
