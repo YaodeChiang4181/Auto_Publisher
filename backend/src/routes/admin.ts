@@ -506,19 +506,14 @@ export default async function adminRoutes(server: FastifyInstance) {
 
     const imageUrl = uploadedImageUrl || null;
 
-    const isSuperAdmin = user.role === 'SUPER_ADMIN';
-    const finalType = type === 'OFFICIAL_REVIEW' 
-      ? 'OFFICIAL_REVIEW' 
-      : (type === 'CENTRAL' && isSuperAdmin ? 'CENTRAL' : 'VENUE');
-
     const ad = await prisma.advertisement.create({
       data: {
         title,
         description,
         linkUrl,
         imageUrl,
-        type: finalType,
-        venueId: finalType === 'CENTRAL' ? null : user.venueId
+        type: type === 'OFFICIAL_REVIEW' ? 'OFFICIAL_REVIEW' : 'VENUE',
+        venueId: user.venueId
       }
     });
 

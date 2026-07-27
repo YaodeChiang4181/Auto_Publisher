@@ -608,21 +608,15 @@ const AdminDashboard = () => {
               <form onSubmit={handleUploadAd} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>廣告類型</label>
-                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '1rem' }}>
                     <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <input type="radio" name="adType" value="VENUE" checked={adType === 'VENUE'} onChange={() => setAdType('VENUE')} />
-                      場館一般廣告
+                      一般視覺廣告
                     </label>
                     <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <input type="radio" name="adType" value="OFFICIAL_REVIEW" checked={adType === 'OFFICIAL_REVIEW'} onChange={() => setAdType('OFFICIAL_REVIEW')} />
                       官方深度解析
                     </label>
-                    {user?.role === 'SUPER_ADMIN' && (
-                      <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#facc15' }}>
-                        <input type="radio" name="adType" value="CENTRAL" checked={adType === 'CENTRAL'} onChange={() => setAdType('CENTRAL')} />
-                        全域平台聯播廣告 (管理員)
-                      </label>
-                    )}
                   </div>
                 </div>
                 <div>
@@ -667,8 +661,8 @@ const AdminDashboard = () => {
                 ) : (
                   ads.map(ad => (
                     <div key={ad.id} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                      <div style={{ position: 'absolute', top: 5, left: 5, background: ad.type === 'OFFICIAL_REVIEW' ? 'rgba(250, 204, 21, 0.9)' : (ad.type === 'CENTRAL' ? 'rgba(168, 85, 247, 0.9)' : 'rgba(0, 163, 255, 0.9)'), color: (ad.type === 'OFFICIAL_REVIEW' || ad.type === 'CENTRAL') ? 'black' : 'white', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', zIndex: 10, fontWeight: 'bold' }}>
-                        {ad.type === 'OFFICIAL_REVIEW' ? '官方解析' : (ad.type === 'CENTRAL' ? '全域廣告' : '場館廣告')}
+                      <div style={{ position: 'absolute', top: 5, left: 5, background: ad.type === 'OFFICIAL_REVIEW' ? 'rgba(250, 204, 21, 0.9)' : 'rgba(0, 163, 255, 0.9)', color: 'black', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', zIndex: 10, fontWeight: 'bold' }}>
+                        {ad.type === 'OFFICIAL_REVIEW' ? '官方解析' : '視覺廣告'}
                       </div>
                       {ad.imageUrl && (
                         <div style={{ height: '120px', width: '100%', overflow: 'hidden' }}>
