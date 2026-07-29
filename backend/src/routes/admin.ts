@@ -333,7 +333,7 @@ export default async function adminRoutes(server: FastifyInstance) {
       const publicUrl = process.env.PUBLIC_URL || 'https://auto-publisher.vercel.app';
       
       const unlockDate = new Date(unlockTime);
-      const prewarmDate = new Date(unlockDate.getTime() - 30 * 1000); // 提前 30 秒
+      const prewarmDate = new Date(unlockDate.getTime() - 120 * 1000); // 提前 2 分鐘
 
       // 檢查時間是否在未來
       if (prewarmDate.getTime() > Date.now() && process.env.QSTASH_TOKEN) {
