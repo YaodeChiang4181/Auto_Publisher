@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Bell, BellOff, LockKeyhole, Sparkles } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { LockKeyhole, Sparkles, MessageCircleWarning } from 'lucide-react';
 
 const WaitRoom = () => {
   const navigate = useNavigate();
-  const [pushStatus, setPushStatus] = useState<'prompt' | 'granted' | 'denied'>('prompt');
+  const location = useLocation();
+  const [lineStatus, setLineStatus] = useState<'prompt' | 'linked' | 'failed'>('prompt');
   const [timeLeft, setTimeLeft] = useState(15); // dummy countdown for visual
   const eventId = localStorage.getItem('eventId');
 
@@ -20,18 +21,7 @@ const WaitRoom = () => {
         const data = await res.json();
         
         if (data.isUnlocked) {
-          if (Notification.permission === 'granted') {
-            try {
-              const reg = await navigator.serviceWorker.ready;
-              await reg.showNotification(`彩蛋已解鎖！`, {
-                body: `您等待的活動已經解鎖，為您導向至解析頁面！`,
-              });
-            } catch (e) {}
-            // 給予 1.5 秒讓推播橫幅有時間彈出
-            setTimeout(() => navigate(`/unlock/${eventId}`, { replace: true }), 1500);
-          } else {
-            navigate(`/unlock/${eventId}`, { replace: true });
-          }
+          navigate(`/unlock/${eventId}`, { replace: true });
         } else if (data.unlockTime) {
           // 計算剩餘秒數
           const remainingSecs = Math.max(0, Math.floor((new Date(data.unlockTime).getTime() - Date.now()) / 1000));
@@ -57,42 +47,22 @@ const WaitRoom = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const enablePush = async () => {
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        // Retrieve public key from backend (via /api/health to bypass Vite proxy issues without restart)
-        const res = await fetch('/api/health');
-        if (!res.ok) throw new Error('無法取得推播金鑰');
-        const { vapidPublicKey } = await res.json();
-        
-        // Register SW and wait until it's active
-        await navigator.serviceWorker.register('/sw.js');
-        const readyRegistration = await navigator.serviceWorker.ready;
-        
-        const subscription = await readyRegistration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: vapidPublicKey
-        });
-
-        // Send to backend
-        const subRes = await fetch('/api/push/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subscription })
-        });
-        if (!subRes.ok) throw new Error('無法向伺服器註冊推播');
-
-        // 一切都成功後才改變狀態，避免畫面閃爍
-        setPushStatus('granted');
-      } else {
-        setPushStatus('denied');
-      }
-    } catch (error: any) {
-      console.error('Failed to enable push', error);
-      alert(`啟用推播失敗: ${error.message || error}`);
-      setPushStatus('denied');
+  // Check URL parameters for LINE Login return status
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('line_linked') === 'true') {
+      setLineStatus('linked');
+      // Clean up URL to avoid confusing users if they refresh
+      window.history.replaceState({}, document.title, location.pathname);
+    } else if (searchParams.get('error') === 'auth_failed') {
+      setLineStatus('failed');
+      window.history.replaceState({}, document.title, location.pathname);
     }
+  }, [location]);
+
+  const handleLineLogin = () => {
+    // 透過 Vite Proxy 導向後端的 LINE Login API
+    window.location.href = '/api/line/auth';
   };
 
   return (
@@ -105,35 +75,39 @@ const WaitRoom = () => {
         活動尚未結束，為了維持最純粹的體驗，深度解析與彩蛋將在 {timeLeft > 0 ? `${timeLeft}秒後` : '即將'} 自動解鎖。
       </p>
 
-      {pushStatus === 'prompt' && (
+      {lineStatus === 'prompt' && (
         <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '16px' }}>
-          <Bell size={32} color="var(--accent-primary)" style={{ margin: '0 auto', display: 'block', marginBottom: '1rem' }} />
+          <svg style={{ margin: '0 auto', display: 'block', marginBottom: '1rem' }} width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22.5 10.972C22.5 5.568 17.794 1.188 12 1.188C6.206 1.188 1.5 5.568 1.5 10.972C1.5 15.82 5.213 19.866 10.024 20.612C10.372 20.732 11.233 21.05 11.391 21.725C11.458 22.015 11.285 23.364 11.285 23.364C11.285 23.364 11.218 24.167 12.394 24.167C13.57 24.167 18.736 21.135 20.785 18.455C21.849 16.592 22.5 14.162 22.5 10.972Z" fill="#06C755"/></svg>
           <h3 style={{ marginBottom: '0.5rem' }}>不想乾等？</h3>
           <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-            開啟離場推播通知，您可以直接關閉螢幕，時間一到我們立刻通知您。
+            登入 LINE 並加好友，您可以直接關閉螢幕，解鎖時我們將立刻通知您。
           </p>
-          <button className="btn-primary" style={{ width: '100%' }} onClick={enablePush}>
-            開啟解鎖推播
+          <button className="btn-primary" style={{ width: '100%', background: '#06C755', color: '#fff' }} onClick={handleLineLogin}>
+            LINE 登入並接收通知
           </button>
         </div>
       )}
 
-      {pushStatus === 'granted' && (
+      {lineStatus === 'linked' && (
         <div style={{ background: 'rgba(74, 222, 128, 0.1)', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(74, 222, 128, 0.2)' }}>
           <Sparkles size={32} color="#4ade80" style={{ margin: '0 auto', display: 'block', marginBottom: '1rem' }} />
-          <h3 style={{ color: '#4ade80', marginBottom: '0.5rem' }}>已開啟無縫推播</h3>
+          <h3 style={{ color: '#4ade80', marginBottom: '0.5rem' }}>✅ 已綁定 LINE 官方帳號</h3>
           <p className="text-muted" style={{ fontSize: '0.9rem' }}>
-            您可以安全地將手機收起，或切換至其他 App，解鎖時將自動通知您。
+            您可以安全地將手機收起，或切換至其他 App，解鎖時將自動透過 LINE 通知您。
           </p>
         </div>
       )}
 
-      {pushStatus === 'denied' && (
+      {lineStatus === 'failed' && (
         <div style={{ background: 'rgba(248, 113, 113, 0.1)', padding: '1.5rem', borderRadius: '16px' }}>
-          <BellOff size={32} color="#f87171" style={{ margin: '0 auto', display: 'block', marginBottom: '1rem' }} />
-          <p className="text-muted" style={{ fontSize: '0.9rem' }}>
-            您已拒絕推播權限。請保持此頁面開啟，我們將為您自動輪詢解鎖狀態。
+          <MessageCircleWarning size={32} color="#f87171" style={{ margin: '0 auto', display: 'block', marginBottom: '1rem' }} />
+          <h3 style={{ color: '#f87171', marginBottom: '0.5rem' }}>綁定失敗</h3>
+          <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>
+            請確認您的網路連線或重新嘗試授權。
           </p>
+          <button className="btn-primary" style={{ width: '100%', background: 'transparent', border: '1px solid #f87171', color: '#f87171' }} onClick={handleLineLogin}>
+            重新嘗試綁定
+          </button>
         </div>
       )}
     </div>

@@ -74,7 +74,7 @@ model Session {
   browserToken   String   @unique // 去識別化的 browser cookie / PWA session ID
   verifiedAt     DateTime @default(now())
   isUnlocked     Boolean  @default(false)
-  pushSub        Json?    // 儲存 Web Push 訂閱物件 (endpoint, keys)
+  lineUserId     String?  // 儲存 LINE User ID
   
   event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }

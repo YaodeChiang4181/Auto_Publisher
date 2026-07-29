@@ -2,7 +2,8 @@ import Fastify from 'fastify';
 import { prisma } from './prisma';
 import { redis } from './redis';
 import crypto from 'crypto';
-import webpush from 'web-push';
+import axios from 'axios';
+import * as line from '@line/bot-sdk';
 import { startScheduler } from './scheduler';
 import fastifyJwt from '@fastify/jwt';
 import fastifyRateLimit from '@fastify/rate-limit';
@@ -91,16 +92,10 @@ server.decorate('authenticate', async function (request: any, reply: any) {
   }
 });
 
-// 讀取正式環境的 VAPID Keys，若無則生成測試用 Keys
-const vapidKeys = {
-  publicKey: process.env.VAPID_PUBLIC_KEY || webpush.generateVAPIDKeys().publicKey,
-  privateKey: process.env.VAPID_PRIVATE_KEY || webpush.generateVAPIDKeys().privateKey
-};
-webpush.setVapidDetails(
-  'mailto:admin@autopublisher.local',
-  vapidKeys.publicKey,
-  vapidKeys.privateKey
-);
+// Initialize LINE client
+const lineClient = new line.messagingApi.MessagingApiClient({
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || ''
+});
 
 import { fetchTrendingForEvent } from './services/trendingScraper';
 
@@ -109,8 +104,7 @@ import { fetchTrendingForEvent } from './services/trendingScraper';
 server.get('/health', async (_request, _reply) => {
   return { 
     status: 'ok', 
-    timestamp: new Date().toISOString(),
-    vapidPublicKey: vapidKeys.publicKey // 讓前端取得公鑰以建立推播訂閱
+    timestamp: new Date().toISOString()
   };
 });
 
@@ -118,8 +112,7 @@ server.get('/health', async (_request, _reply) => {
 server.get('/api/health', async (_request, _reply) => {
   return { 
     status: 'ok', 
-    timestamp: new Date().toISOString(),
-    vapidPublicKey: vapidKeys.publicKey
+    timestamp: new Date().toISOString()
   };
 });
 
@@ -256,26 +249,63 @@ server.get('/api/qr/scan', {
   };
 });
 
-// API: Subscribe to Web Push
-server.post('/api/push/subscribe', {
-  config: {
-    rateLimit: { max: 300, timeWindow: '1 minute' } // 放寬與掃描同等，因爲會是一起動作的
+// API: LINE Login Auth Redirect
+server.get('/api/line/auth', async (request, reply) => {
+  const clientId = process.env.LINE_CHANNEL_ID;
+  const redirectUri = encodeURIComponent(process.env.LINE_LOGIN_REDIRECT_URI || 'http://localhost:3000/api/line/callback');
+  // State 為了安全起見應該要是隨機字串，這裡簡化處理，將 browserToken 當作 state 傳遞
+  const browserToken = request.cookies.sessionToken || '';
+  
+  const authUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${browserToken}&scope=profile%20openid&bot_prompt=normal`;
+  
+  reply.redirect(authUrl);
+});
+
+// API: LINE Login Callback
+server.get('/api/line/callback', async (request, reply) => {
+  const { code, state, error } = request.query as { code?: string, state?: string, error?: string };
+  
+  if (error || !code) {
+    // 授權失敗或取消，導向回前端並帶上錯誤參數
+    return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait-room?error=auth_failed`);
   }
-}, async (request, reply) => {
-  const { subscription } = request.body as { subscription: any };
-  const browserToken = request.cookies.sessionToken;
 
-  if (!browserToken || !subscription) {
-    return reply.status(400).send({ error: 'Missing session cookie or subscription' });
+  try {
+    // 1. 使用 code 換取 access_token
+    const tokenResponse = await axios.post('https://api.line.me/oauth2/v2.1/token', new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: code,
+      redirect_uri: process.env.LINE_LOGIN_REDIRECT_URI || 'http://localhost:3000/api/line/callback',
+      client_id: process.env.LINE_CHANNEL_ID || '',
+      client_secret: process.env.LINE_CHANNEL_SECRET || ''
+    }).toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    const accessToken = tokenResponse.data.access_token;
+    
+    // 2. 取得用戶 profile 以獲取 userId
+    const profileResponse = await axios.get('https://api.line.me/v2/profile', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    
+    const userId = profileResponse.data.userId;
+    
+    // 3. 將 userId 綁定到原本的 session (state 就是 browserToken)
+    const browserToken = state;
+    if (browserToken) {
+      await prisma.session.update({
+        where: { browserToken },
+        data: { lineUserId: userId }
+      });
+    }
+    
+    // 4. 成功後導向回前端 WaitRoom
+    return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait-room?line_linked=true`);
+  } catch (err) {
+    server.log.error(err);
+    return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait-room?error=auth_failed`);
   }
-
-  // 將訂閱資訊存入 Session
-  await prisma.session.update({
-    where: { browserToken },
-    data: { pushSub: subscription }
-  });
-
-  return { success: true };
 });
 
 // API: Polling fallback for unlock status
@@ -379,26 +409,26 @@ server.post('/api/webhooks/push', async (request, reply) => {
       data: { isUnlocked: true }
     });
 
-    // 3. 找出所有訂閱推播的觀眾，批量發送通知
+    // 3. 找出所有訂閱推播的觀眾，發送 LINE 通知
     const pushPromises = sessions
-      .filter(s => s.pushSub)
+      .filter(s => s.lineUserId)
       .map(async (s) => {
         try {
-          await webpush.sendNotification(
-            s.pushSub as unknown as webpush.PushSubscription,
-            JSON.stringify({ 
-              title: '彩蛋已解鎖！', 
-              body: '您觀看的活動已結束，點擊查看專屬深度討論與彩蛋解析。',
-              url: `/unlock/${eventId}`
-            })
-          );
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+          await lineClient.pushMessage({
+            to: s.lineUserId as string,
+            messages: [{
+              type: 'text',
+              text: `彩蛋已解鎖！\n您觀看的活動已結束，點擊查看專屬深度討論與彩蛋解析：\n${frontendUrl}/unlock/${eventId}`
+            }]
+          });
           // 同步更新每位使用者的 Redis 狀態快取，讓等候室瞬間放行
           await redis.setex(`session_status:${s.browserToken}`, 3600, JSON.stringify({
             isUnlocked: true,
             unlockTime: new Date()
           }));
         } catch (e) {
-          server.log.error(e as Error, `Push failed for ${s.browserToken}`);
+          server.log.error(e as Error, `LINE Push failed for ${s.lineUserId}`);
         }
       });
       
