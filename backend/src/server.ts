@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import Fastify from 'fastify';
 import { prisma } from './prisma';
 import { redis } from './redis';
@@ -13,6 +14,8 @@ import fastifyStatic from '@fastify/static';
 import path from 'path';
 import adminRoutes from './routes/admin';
 import unlockRoutes from './routes/unlock';
+import analyticsRoutes from './routes/analytics';
+import superadminRoutes from './routes/superadmin';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -119,6 +122,8 @@ server.get('/api/health', async (_request, _reply) => {
 // 註冊 Admin API 路由
 server.register(adminRoutes, { prefix: '/api/admin' });
 server.register(unlockRoutes, { prefix: '/api/unlock' });
+server.register(analyticsRoutes, { prefix: '/api/analytics' });
+server.register(superadminRoutes, { prefix: '/api/superadmin' });
 
 // API: Generate Dynamic QR Code Token
 // Request expects: ?eventId=xxx&venueId=yyy
@@ -141,12 +146,12 @@ server.get('/api/qr/token', async (request, reply) => {
   // Generate a short-lived token
   const token = crypto.randomBytes(16).toString('hex');
   
-  // Store token in Redis with a TTL of 10 seconds (for dynamic refresh)
+  // Store token in Redis with a TTL of 60 seconds (for dynamic refresh)
   // The value can be a JSON string with the eventId and venueId
   const tokenData = JSON.stringify({ eventId, venueId });
-  await redis.setex(`qr_token:${token}`, 10, tokenData);
+  await redis.setex(`qr_token:${token}`, 60, tokenData);
 
-  return { token, expiresIn: 10 };
+  return { token, expiresIn: 60 };
 });
 
 // API: Verify Token & Create Anonymous Session (QR Scan)
@@ -182,7 +187,8 @@ server.get('/api/qr/scan', {
       if (distance <= venue.geoRadius) {
         isGeoVerified = true;
       } else {
-        return reply.status(403).send({ error: '您不在活動現場，無法解鎖內容 (Geo-fence failed)' });
+        // User is outside the geo-fence
+        isGeoVerified = false;
       }
     }
   }
@@ -200,22 +206,24 @@ server.get('/api/qr/scan', {
     }
   });
 
-  // Update EventScanStat
-  await prisma.eventScanStat.upsert({
-    where: { eventId },
-    update: {
-      totalScans: { increment: 1 },
-      verifiedScans: { increment: 1 },
-      geoVerifiedScans: isGeoVerified ? { increment: 1 } : undefined,
-      lastScannedAt: new Date()
-    },
-    create: {
-      eventId,
-      totalScans: 1,
-      verifiedScans: 1,
-      geoVerifiedScans: isGeoVerified ? 1 : 0,
-    }
-  });
+  // Update EventScanStat only if geo-verified (so unverified users are excluded from stats)
+  if (isGeoVerified) {
+    await prisma.eventScanStat.upsert({
+      where: { eventId },
+      update: {
+        totalScans: { increment: 1 },
+        verifiedScans: { increment: 1 },
+        geoVerifiedScans: { increment: 1 },
+        lastScannedAt: new Date()
+      },
+      create: {
+        eventId,
+        totalScans: 1,
+        verifiedScans: 1,
+        geoVerifiedScans: 1,
+      }
+    });
+  }
 
   // Calculate remaining time for the Event to finish (Time-Lock)
   const event = await prisma.event.findUnique({ where: { id: eventId } });
@@ -228,7 +236,8 @@ server.get('/api/qr/scan', {
   // [Performance] 將初始狀態直接快取到 Redis，避免後續輪詢打爆 DB
   await redis.setex(`session_status:${browserToken}`, ttl + 3600, JSON.stringify({
     isUnlocked: false,
-    unlockTime: event?.unlockTime
+    unlockTime: event?.unlockTime,
+    isGeoVerified: isGeoVerified
   }));
 
   // [Bugfix] 移除單次使用的 QR Token 刪除邏輯，允許多人同時掃描同一個 10 秒內的畫面
@@ -306,6 +315,97 @@ server.get('/api/line/callback', async (request, reply) => {
     server.log.error(err);
     return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait-room?error=auth_failed`);
   }
+});
+
+// API: Server-Sent Events (SSE) for unlock status
+server.get('/api/session/sse', async (request, reply) => {
+  const browserToken = request.cookies.sessionToken;
+  if (!browserToken) {
+    reply.status(401).send({ error: 'Missing session cookie' });
+    return;
+  }
+
+  // Setup SSE Headers
+  reply.raw.setHeader('Content-Type', 'text/event-stream');
+  reply.raw.setHeader('Cache-Control', 'no-cache');
+  reply.raw.setHeader('Connection', 'keep-alive');
+  // For CORS if needed, though we run on same origin
+  reply.raw.setHeader('Access-Control-Allow-Origin', '*');
+
+  let isClientConnected = true;
+  request.raw.on('close', () => {
+    isClientConnected = false;
+  });
+
+  const checkStatus = async () => {
+    if (!isClientConnected) return;
+
+    try {
+      const cachedStatus = await redis.get(`session_status:${browserToken}`);
+      if (cachedStatus) {
+        const parsed = JSON.parse(cachedStatus);
+        
+        // Lazy unlock
+        if (!parsed.isUnlocked && parsed.unlockTime && new Date() >= new Date(parsed.unlockTime)) {
+          parsed.isUnlocked = true;
+        }
+
+        if (parsed.isUnlocked) {
+          reply.raw.write(`data: ${JSON.stringify({ isUnlocked: true })}\n\n`);
+          // Note: Node's reply.raw.end() might cause Fastify to complain if called prematurely, but SSE implies manual ending.
+          reply.raw.end();
+          isClientConnected = false;
+          return;
+        } else {
+          // Send current countdown time
+          reply.raw.write(`data: ${JSON.stringify({ unlockTime: parsed.unlockTime })}\n\n`);
+        }
+      } else {
+        // Fallback to DB if Redis is cleared
+        const session = await prisma.session.findUnique({ 
+          where: { browserToken },
+          include: { event: true } 
+        });
+        
+        if (session) {
+          let isUnlocked = session.isUnlocked;
+          const unlockTime = session.event?.unlockTime;
+
+          if (!isUnlocked && unlockTime && new Date() >= new Date(unlockTime)) {
+            isUnlocked = true;
+          }
+
+          if (isUnlocked) {
+            reply.raw.write(`data: ${JSON.stringify({ isUnlocked: true })}\n\n`);
+            reply.raw.end();
+            isClientConnected = false;
+            return;
+          } else {
+            reply.raw.write(`data: ${JSON.stringify({ unlockTime })}\n\n`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[SSE Error]', err);
+    }
+  };
+
+  // Initial check
+  await checkStatus();
+
+  // Schedule internal polling every 2 seconds
+  const interval = setInterval(() => {
+    if (isClientConnected) {
+      checkStatus();
+    } else {
+      clearInterval(interval);
+    }
+  }, 2000);
+
+  // Clear interval on disconnect
+  request.raw.on('close', () => {
+    clearInterval(interval);
+  });
 });
 
 // API: Polling fallback for unlock status

@@ -4,6 +4,48 @@ import { fetchTrendingForEvent } from '../services/trendingScraper';
 
 export default async function unlockRoutes(server: FastifyInstance) {
   
+  // 取得特定活動的廣告 (不限解鎖狀態，供候車室使用)
+  server.get('/ads/:eventId', async (request, reply) => {
+    const { eventId } = request.params as any;
+    try {
+      const event = await prisma.event.findUnique({
+        where: { id: eventId }
+      });
+
+      if (!event) {
+        return reply.status(404).send({ error: 'Event not found' });
+      }
+
+      const now = new Date();
+      const centralAds = await prisma.advertisement.findMany({
+        where: { 
+          type: 'CENTRAL',
+          OR: [
+            { campaignId: null },
+            {
+              campaign: {
+                isActive: true,
+                startDate: { lte: now },
+                endDate: { gte: now }
+              }
+            }
+          ]
+        }
+      });
+      
+      const venueAds = await prisma.advertisement.findMany({
+        where: { venueId: event.venueId, type: 'VENUE' }
+      });
+
+      return {
+        central: centralAds,
+        venue: venueAds
+      };
+    } catch (error) {
+      console.error(error);
+      return reply.status(500).send({ error: 'Internal Server Error' });
+    }
+  });
   server.get('/content/:eventId', async (request, reply) => {
     const { eventId } = request.params as any;
     const sessionToken = request.cookies.sessionToken;
@@ -41,12 +83,31 @@ export default async function unlockRoutes(server: FastifyInstance) {
       const trending = await fetchTrendingForEvent(eventId, event.name);
 
       // 2. Get Ads (Central + Venue specific)
+      const now = new Date();
       const centralAds = await prisma.advertisement.findMany({
-        where: { type: 'CENTRAL' }
+        where: { 
+          type: 'CENTRAL',
+          OR: [
+            { campaignId: null },
+            {
+              campaign: {
+                isActive: true,
+                startDate: { lte: now },
+                endDate: { gte: now }
+              }
+            }
+          ]
+        }
       });
       
       const venueAds = await prisma.advertisement.findMany({
         where: { venueId: event.venueId, type: 'VENUE' }
+      });
+
+      const officialReviews = await prisma.advertisement.findMany({
+        where: { venueId: event.venueId, type: 'OFFICIAL_REVIEW' },
+        orderBy: { createdAt: 'desc' },
+        take: 1
       });
 
       return {
@@ -54,7 +115,8 @@ export default async function unlockRoutes(server: FastifyInstance) {
         ads: {
           central: centralAds,
           venue: venueAds
-        }
+        },
+        officialReview: officialReviews.length > 0 ? officialReviews[0] : null
       };
     } catch (error) {
       console.error(error);

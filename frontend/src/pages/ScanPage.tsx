@@ -57,7 +57,7 @@ const ScanPage = () => {
           locationResolved = true;
           verifyToken(); // Fallback without geo
         }
-      }, 5000); // 5 second timeout
+      }, 10000); // 10 second timeout
 
       navigator.geolocation.getCurrentPosition(
         (position) => {

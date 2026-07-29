@@ -18,13 +18,14 @@ const AdminDashboard = () => {
   const [adTitle, setAdTitle] = useState('');
   const [adDescription, setAdDescription] = useState('');
   const [adLinkUrl, setAdLinkUrl] = useState('');
+  const [adType, setAdType] = useState('VENUE');
   const [adFile, setAdFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   // Manual event state
   const [newEventName, setNewEventName] = useState('');
   const [newEventStartTime, setNewEventStartTime] = useState('');
-  const [newEventUnlockTime, setNewEventUnlockTime] = useState('');
+  const [newEventDuration, setNewEventDuration] = useState('');
 
   // 2FA state
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
@@ -217,13 +218,17 @@ const AdminDashboard = () => {
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const startTimeDate = new Date(newEventStartTime);
+      const durationMins = parseInt(newEventDuration, 10) || 0;
+      const unlockTimeDate = new Date(startTimeDate.getTime() + durationMins * 60000);
+
       const res = await fetch('/api/admin/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           name: newEventName, 
-          startTime: new Date(newEventStartTime).toISOString(), 
-          unlockTime: new Date(newEventUnlockTime).toISOString() 
+          startTime: startTimeDate.toISOString(), 
+          unlockTime: unlockTimeDate.toISOString() 
         })
       });
       const data = await res.json();
@@ -231,7 +236,7 @@ const AdminDashboard = () => {
       setEvents([...events, data].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()));
       setNewEventName('');
       setNewEventStartTime('');
-      setNewEventUnlockTime('');
+      setNewEventDuration('');
       alert('活動建立成功！');
     } catch (e: any) {
       alert(e.message);
@@ -251,6 +256,38 @@ const AdminDashboard = () => {
       setEvents(events.filter(e => e.id !== id));
     } catch (e: any) {
       alert(e.message);
+    }
+  };
+
+  const fetchEventsHelper = async () => {
+    try {
+      const res = await fetch('/api/admin/events');
+      if (res.ok) {
+        const data = await res.json();
+        setEvents(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleUpdateAttendance = async (eventId: string, attendance: string) => {
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}/attendance`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ totalAttendance: attendance })
+      });
+      if (res.ok) {
+        fetchEventsHelper();
+        alert('人數已更新');
+      } else {
+        const error = await res.json();
+        alert(error.error || '更新失敗');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('網路錯誤');
     }
   };
 
@@ -279,6 +316,7 @@ const AdminDashboard = () => {
       formData.append('title', adTitle);
       formData.append('description', adDescription);
       formData.append('linkUrl', adLinkUrl);
+      formData.append('type', adType);
       if (adFile) {
         formData.append('image', adFile);
       }
@@ -330,9 +368,9 @@ const AdminDashboard = () => {
 
   return (
     <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
         <h1 className="title-gradient" style={{ fontSize: '2rem', margin: 0 }}>AutoPublisher B2B</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <span className="text-muted">歡迎, {user?.name || user?.username}</span>
           <button 
             onClick={handleLogout}
@@ -351,9 +389,9 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', marginBottom: '2rem' }}>
         {/* Venue Location Settings */}
-        <div className="glass-panel" style={{ padding: '2rem' }}>
+        <div className="glass-panel" style={{ flex: '1 1 300px', width: '100%', padding: '2rem' }}>
           <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'white' }}>場域地理圍欄設定</h2>
           <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>
             設定此場館的地理邊界，以及場館顯示名稱。在半徑外掃描 QR Code 的使用者將會被標記為未驗證狀態。
@@ -363,7 +401,7 @@ const AdminDashboard = () => {
               <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>場館名稱 (顯示在 Kiosk 數位看板)</label>
               <input type="text" value={venueName} onChange={e => setVenueName(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：信義威秀影城" />
             </div>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>緯度 (Latitude)</label>
                 <input type="text" value={geoLat} onChange={e => setGeoLat(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
@@ -422,7 +460,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Security Settings */}
-        <div className="glass-panel" style={{ padding: '2rem' }}>
+        <div className="glass-panel" style={{ flex: '1 1 300px', width: '100%', padding: '2rem' }}>
           <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: 'white' }}>安全設定</h2>
           
           <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -471,8 +509,8 @@ const AdminDashboard = () => {
               <input type="datetime-local" value={newEventStartTime} onChange={e => setNewEventStartTime(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
             </div>
             <div style={{ flex: '1 1 200px' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>結束/解鎖時間</label>
-              <input type="datetime-local" value={newEventUnlockTime} onChange={e => setNewEventUnlockTime(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>活動時長 (分鐘)</label>
+              <input type="number" min="1" value={newEventDuration} onChange={e => setNewEventDuration(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：120" />
             </div>
             <button type="submit" style={{ flex: '0 0 auto', padding: '0.6rem 1.5rem', background: 'var(--accent-primary)', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '39px' }}>
               建立
@@ -487,17 +525,17 @@ const AdminDashboard = () => {
             </div>
           ) : (
             events.map((event) => (
-              <div key={event.id} style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ textAlign: 'left' }}>
+              <div key={event.id} style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ textAlign: 'left', flex: '1 1 200px' }}>
                   <div style={{ fontWeight: 600, fontSize: '1.2rem', color: '#fff', marginBottom: '0.5rem' }}>{event.name}</div>
                   <div className="text-muted" style={{ fontSize: '0.9rem' }}>開始： {new Date(event.startTime).toLocaleString()}</div>
                   <div className="text-muted" style={{ fontSize: '0.9rem' }}>結束： {new Date(event.unlockTime).toLocaleString()}</div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => handleDeleteEvent(event.id)} style={{ background: 'rgba(255, 60, 60, 0.2)', border: '1px solid #ff3c3c', color: '#ff3c3c', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', width: '100%', justifyContent: 'flex-start' }}>
+                  <button onClick={() => handleDeleteEvent(event.id)} style={{ flex: '1 1 100px', minWidth: '80px', background: 'rgba(255, 60, 60, 0.2)', border: '1px solid #ff3c3c', color: '#ff3c3c', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
                     刪除
                   </button>
-                  <button onClick={() => handleStartKiosk(event.id, event.venueId)} style={{ background: 'rgba(0, 163, 255, 0.2)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                  <button onClick={() => handleStartKiosk(event.id, event.venueId)} style={{ flex: '2 1 150px', minWidth: '120px', background: 'rgba(0, 163, 255, 0.2)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
                     啟動數位看板
                   </button>
                 </div>
@@ -507,73 +545,148 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Dynamic Ads Management */}
-      <div className="glass-panel" style={{ padding: '2rem', marginTop: '2rem' }}>
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'white' }}>動態廣告管理</h2>
-        <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-          上傳場館專屬的動態廣告。廣告將會在使用者的解鎖頁面中，每 10 秒與平台全域廣告輪播一次。支援格式：JPG, PNG, WEBP, GIF (最大 5MB)。
-        </p>
-
-        <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-          {/* Upload Form */}
-          <div style={{ flex: '1 1 300px', background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-primary)' }}>上傳新廣告</h3>
-            <form onSubmit={handleUploadAd} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>廣告標題</label>
-                <input type="text" value={adTitle} onChange={e => setAdTitle(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：超值爆米花套餐" />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>廣告描述</label>
-                <input type="text" value={adDescription} onChange={e => setAdDescription(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="非必填簡短描述" />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>導購連結 (選填)</label>
-                <input type="url" value={adLinkUrl} onChange={e => setAdLinkUrl(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="https://..." />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>圖片或動畫 (最大 5MB, 選填)</label>
-                <input id="adFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
-              </div>
-              <button type="submit" disabled={isUploading} style={{ marginTop: '0.5rem', padding: '0.8rem', background: 'var(--accent-primary)', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                {isUploading ? '上傳中...' : '上傳廣告'}
-              </button>
-            </form>
-          </div>
-
-          {/* Ad List */}
-          <div style={{ flex: '2 1 400px' }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'white' }}>目前播放中的廣告</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-              {ads.length === 0 ? (
-                <div className="text-muted" style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
-                  目前還沒有上傳任何廣告。
-                </div>
-              ) : (
-                ads.map(ad => (
-                  <div key={ad.id} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column' }}>
-                    {ad.imageUrl && (
-                      <div style={{ height: '120px', width: '100%', overflow: 'hidden' }}>
-                        <img src={ad.imageUrl} alt={ad.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                    )}
-                    <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>{ad.title}</h4>
-                      <p className="text-muted" style={{ fontSize: '0.8rem', marginBottom: '1rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                        {ad.description || '無描述'}
-                      </p>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        {ad.linkUrl ? (
-                          <a href={ad.linkUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent-primary)' }}>預覽連結</a>
-                        ) : (
-                          <span style={{ fontSize: '0.8rem', color: '#666' }}>無連結</span>
-                        )}
-                        <button onClick={() => handleDeleteAd(ad.id)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>刪除</button>
-                      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', marginTop: '2rem' }}>
+        {/* Statistics Panel */}
+        <div className="glass-panel" style={{ flex: '1 1 300px', width: '100%', padding: '2rem' }}>
+          <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', color: 'white' }}>活動數據統計</h2>
+          {events.length === 0 ? (
+            <p className="text-muted">目前沒有活動</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {events.map((event) => (
+                <div key={event.id} style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <h3 style={{ fontSize: '1.1rem', color: 'var(--accent-primary)', marginBottom: '1rem' }}>{event.name}</h3>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <span style={{ fontSize: '0.9rem' }}>現場總人數:</span>
+                    <input 
+                      type="number" 
+                      defaultValue={event.stats?.totalAttendance || ''}
+                      onBlur={(e) => {
+                        if(e.target.value) handleUpdateAttendance(event.id, e.target.value);
+                      }}
+                      style={{ width: '100px', padding: '0.3rem', background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}
+                      placeholder="未輸入"
+                    />
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.9rem' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '0.5rem', borderRadius: '4px' }}>
+                      <div className="text-muted" style={{ fontSize: '0.8rem' }}>掃碼率</div>
+                      <div style={{ fontWeight: 'bold' }}>{event.stats?.scanRate !== null && event.stats?.scanRate !== undefined ? `${event.stats.scanRate.toFixed(1)}%` : '-'}</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '0.5rem', borderRadius: '4px' }}>
+                      <div className="text-muted" style={{ fontSize: '0.8rem' }}>散場互動率 (15分內)</div>
+                      <div style={{ fontWeight: 'bold' }}>{event.stats?.interactionRate?.toFixed(1) || 0}%</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '0.5rem', borderRadius: '4px' }}>
+                      <div className="text-muted" style={{ fontSize: '0.8rem' }}>廣告點擊率</div>
+                      <div style={{ fontWeight: 'bold' }}>{event.stats?.ctr?.toFixed(1) || 0}%</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '0.5rem', borderRadius: '4px' }}>
+                      <div className="text-muted" style={{ fontSize: '0.8rem' }}>總掃描數</div>
+                      <div style={{ fontWeight: 'bold' }}>{event.stats?.totalScans || 0}</div>
                     </div>
                   </div>
-                ))
-              )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Dynamic Ads Management */}
+        <div className="glass-panel" style={{ flex: '1 1 300px', width: '100%', padding: '2rem' }}>
+          <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'white' }}>動態廣告管理</h2>
+          <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+            上傳場館專屬的動態廣告。廣告將會在使用者的解鎖頁面中，每 10 秒與平台全域廣告輪播一次。支援格式：JPG, PNG, WEBP, GIF (最大 5MB)。
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            {/* Upload Form */}
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-primary)' }}>上傳新廣告</h3>
+              <form onSubmit={handleUploadAd} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>廣告類型</label>
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <input type="radio" name="adType" value="VENUE" checked={adType === 'VENUE'} onChange={() => setAdType('VENUE')} />
+                      一般視覺廣告
+                    </label>
+                    <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <input type="radio" name="adType" value="OFFICIAL_REVIEW" checked={adType === 'OFFICIAL_REVIEW'} onChange={() => setAdType('OFFICIAL_REVIEW')} />
+                      官方深度解析
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>{adType === 'OFFICIAL_REVIEW' ? '解析標題' : '廣告標題'}</label>
+                  <input type="text" value={adTitle} onChange={e => setAdTitle(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder={adType === 'OFFICIAL_REVIEW' ? "例如：導演親自解析：結尾的三個隱喻" : "例如：超值爆米花套餐"} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>廣告描述</label>
+                  <input type="text" value={adDescription} onChange={e => setAdDescription(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="非必填簡短描述" />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>導購連結 (選填)</label>
+                  <input type="url" value={adLinkUrl} onChange={e => setAdLinkUrl(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="https://..." />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>圖片或動畫 (最大 5MB, 選填)</label>
+                  <input id="adFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
+                  <div style={{ fontSize: '0.8rem', color: '#ffcc00', marginTop: '0.5rem' }}>
+                    ⚠️ 請注意展覽尺寸建議比例為（16：9）或橫幅長條圖（高度 160px），以確保最佳展示效果。
+                  </div>
+                  {adFile && (
+                    <div style={{ marginTop: '1rem', border: '1px dashed rgba(255,255,255,0.3)', padding: '0.5rem', borderRadius: '8px', textAlign: 'center' }}>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', marginBottom: '0.5rem' }}>上傳前預覽 (直接讀取本地檔案，未使用 Base64)</p>
+                      <img src={URL.createObjectURL(adFile)} alt="預覽" style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '4px', objectFit: 'contain' }} />
+                    </div>
+                  )}
+                </div>
+                <button type="submit" disabled={isUploading} style={{ marginTop: '0.5rem', padding: '0.8rem', background: 'var(--accent-primary)', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                  {isUploading ? '上傳中...' : '上傳廣告'}
+                </button>
+              </form>
+            </div>
+
+            {/* Ad List */}
+            <div>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'white' }}>目前播放中的廣告</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                {ads.length === 0 ? (
+                  <div className="text-muted" style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
+                    目前還沒有上傳任何廣告。
+                  </div>
+                ) : (
+                  ads.map(ad => (
+                    <div key={ad.id} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                      <div style={{ position: 'absolute', top: 5, left: 5, background: ad.type === 'OFFICIAL_REVIEW' ? 'rgba(250, 204, 21, 0.9)' : 'rgba(0, 163, 255, 0.9)', color: 'black', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', zIndex: 10, fontWeight: 'bold' }}>
+                        {ad.type === 'OFFICIAL_REVIEW' ? '官方解析' : '視覺廣告'}
+                      </div>
+                      {ad.imageUrl && (
+                        <div style={{ height: '120px', width: '100%', overflow: 'hidden' }}>
+                          <img src={ad.imageUrl} alt={ad.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                      )}
+                      <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column', paddingTop: ad.imageUrl ? '1rem' : '2rem' }}>
+                        <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem' }}>{ad.title}</h4>
+                        <p className="text-muted" style={{ fontSize: '0.8rem', marginBottom: '1rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                          {ad.description || '無描述'}
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          {ad.linkUrl ? (
+                            <a href={ad.linkUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent-primary)' }}>預覽連結</a>
+                          ) : (
+                            <span style={{ fontSize: '0.8rem', color: '#666' }}>無連結</span>
+                          )}
+                          <button onClick={() => handleDeleteAd(ad.id)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>刪除</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>
