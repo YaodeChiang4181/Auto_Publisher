@@ -276,7 +276,7 @@ server.get('/api/line/callback', async (request, reply) => {
   
   if (error || !code) {
     // 授權失敗或取消，導向回前端並帶上錯誤參數
-    return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait-room?error=auth_failed`);
+    return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait?error=auth_failed`);
   }
 
   try {
@@ -310,10 +310,10 @@ server.get('/api/line/callback', async (request, reply) => {
     }
     
     // 4. 成功後導向回前端 WaitRoom
-    return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait-room?line_linked=true`);
+    return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait?line_linked=true`);
   } catch (err) {
     server.log.error(err);
-    return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait-room?error=auth_failed`);
+    return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait?error=auth_failed`);
   }
 });
 
