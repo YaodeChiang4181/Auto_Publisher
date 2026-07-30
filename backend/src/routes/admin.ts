@@ -335,25 +335,34 @@ export default async function adminRoutes(server: FastifyInstance) {
       const unlockDate = new Date(unlockTime);
       const prewarmDate = new Date(unlockDate.getTime() - 120 * 1000); // 提前 2 分鐘
 
-      // 檢查時間是否在未來
-      if (prewarmDate.getTime() > Date.now() && process.env.QSTASH_TOKEN) {
-        // 1. 預熱爬蟲 (Pre-warm Scraper)
-        await qstash.publishJSON({
-          url: `${publicUrl}/api/webhooks/prewarm`,
-          body: { eventId: newEvent.id, eventName: newEvent.name },
-          notBefore: Math.floor(prewarmDate.getTime() / 1000), // UNIX timestamp (seconds)
-        });
+      if (process.env.QSTASH_TOKEN) {
+        // 1. 預熱爬蟲 (Pre-warm Scraper) - 如果時間已過 2 分鐘，就立即執行
+        if (prewarmDate.getTime() > Date.now()) {
+          await qstash.publishJSON({
+            url: `${publicUrl}/api/webhooks/prewarm`,
+            body: { eventId: newEvent.id, eventName: newEvent.name },
+            notBefore: Math.floor(prewarmDate.getTime() / 1000),
+          });
+        } else {
+          // 立即執行預熱
+          await qstash.publishJSON({
+            url: `${publicUrl}/api/webhooks/prewarm`,
+            body: { eventId: newEvent.id, eventName: newEvent.name }
+          });
+        }
 
         // 2. 準點推播 (Push Notifications)
-        await qstash.publishJSON({
-          url: `${publicUrl}/api/webhooks/push`,
-          body: { eventId: newEvent.id },
-          notBefore: Math.floor(unlockDate.getTime() / 1000),
-        });
+        if (unlockDate.getTime() > Date.now()) {
+          await qstash.publishJSON({
+            url: `${publicUrl}/api/webhooks/push`,
+            body: { eventId: newEvent.id },
+            notBefore: Math.floor(unlockDate.getTime() / 1000),
+          });
+        }
         
         server.log.info(`[QStash] Scheduled Webhooks for Event ${newEvent.id}`);
       } else {
-        server.log.warn(`[QStash] Skipped scheduling: Time is in the past or QSTASH_TOKEN missing.`);
+        server.log.warn(`[QStash] Skipped scheduling: QSTASH_TOKEN missing.`);
       }
     } catch (scheduleError) {
       server.log.error(scheduleError, '[QStash] Failed to schedule webhooks');

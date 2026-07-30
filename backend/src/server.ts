@@ -443,8 +443,6 @@ server.get('/api/session/status', {
   // [Fallback] 懶惰解鎖
   if (!statusData.isUnlocked && statusData.unlockTime && new Date() >= new Date(statusData.unlockTime)) {
     statusData.isUnlocked = true;
-    // 順便補上非同步的 DB 更新，確保後續資料一致性
-    prisma.session.update({ where: { browserToken }, data: { isUnlocked: true } }).catch(() => {});
   }
   
   // 回補快取
