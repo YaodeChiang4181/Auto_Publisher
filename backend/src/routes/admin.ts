@@ -330,7 +330,7 @@ export default async function adminRoutes(server: FastifyInstance) {
     // 當建立活動時，預先排定未來的喚醒時間
     // ==========================================
     try {
-      const publicUrl = process.env.PUBLIC_URL || 'https://auto-publisher.vercel.app';
+      const publicUrl = (process.env.PUBLIC_URL || 'https://auto-publisher.vercel.app').replace(/\/$/, '');
       
       const unlockDate = new Date(unlockTime);
       const prewarmDate = new Date(unlockDate.getTime() - 120 * 1000); // 提前 2 分鐘

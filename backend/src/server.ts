@@ -101,6 +101,11 @@ const lineClient = new line.messagingApi.MessagingApiClient({
 });
 
 import { fetchTrendingForEvent } from './services/trendingScraper';
+import { Client as QStashClient } from '@upstash/qstash';
+
+const qstash = new QStashClient({
+  token: process.env.QSTASH_TOKEN || 'mock-token-for-dev'
+});
 
 
 // API: Health check & Config
@@ -537,6 +542,67 @@ server.post('/api/webhooks/push', async (request, reply) => {
   } catch (error) {
     server.log.error(error as Error, '[QStash] Push Trigger failed');
     return reply.status(500).send({ error: 'Push trigger failed' });
+  }
+});
+
+// 診斷工具 API (用於排解無法收到推播的問題)
+server.get('/api/diagnostics', async (request, reply) => {
+  try {
+    const publicUrl = (process.env.PUBLIC_URL || 'https://auto-publisher.vercel.app').replace(/\/$/, '');
+    const hasQstashToken = !!process.env.QSTASH_TOKEN;
+    const hasLineToken = !!process.env.LINE_CHANNEL_ACCESS_TOKEN;
+    
+    let qstashTest = 'Not Tested';
+    let lineTest = 'Not Tested';
+
+    // 1. 測試 QStash
+    if (hasQstashToken) {
+      try {
+        const res = await qstash.publishJSON({
+          url: `${publicUrl}/api/diagnostics`, // dummy self-ping
+          body: { test: true }
+        });
+        qstashTest = `Success (MessageID: ${res.messageId})`;
+      } catch (err: any) {
+        qstashTest = `Failed: ${err.message}`;
+      }
+    } else {
+      qstashTest = 'Failed: QSTASH_TOKEN missing';
+    }
+
+    // 2. 測試 LINE 推播 (找最近一個綁定 LINE 的用戶測試發送)
+    if (hasLineToken) {
+      const session = await prisma.session.findFirst({
+        where: { lineUserId: { not: null } },
+        orderBy: { verifiedAt: 'desc' }
+      });
+      if (session && session.lineUserId) {
+        try {
+          await lineClient.pushMessage({
+            to: session.lineUserId,
+            messages: [{ type: 'text', text: '系統診斷：這是一條測試推播。若您收到，代表 LINE 推播功能完全正常！' }]
+          });
+          lineTest = `Success (Sent to: ${session.lineUserId.substring(0,5)}...)`;
+        } catch (err: any) {
+          lineTest = `Failed: ${err.message || (err.response && JSON.stringify(err.response.data))}`;
+        }
+      } else {
+        lineTest = 'Skipped: No LINE user found in database';
+      }
+    } else {
+      lineTest = 'Failed: LINE_CHANNEL_ACCESS_TOKEN missing';
+    }
+
+    return {
+      publicUrl,
+      hasQstashToken,
+      hasLineToken,
+      qstashTest,
+      lineTest,
+      suggestion: '如果 qstashTest 失敗，請檢查 QSTASH_TOKEN。如果 lineTest 失敗，請檢查 LINE Provider 是否一致或是否已加好友。'
+    };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message });
   }
 });
 
