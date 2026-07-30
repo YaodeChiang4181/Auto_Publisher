@@ -24,7 +24,7 @@ export async function fetchTrendingForEvent(eventId: string, eventName: string) 
   let combinedResults: ScrapedResult[] = [];
 
   // 2. 清理活動名稱：移除特殊符號，保留核心關鍵字
-  const sanitizedEventName = eventName.replace(/[．。，、：；？！:;,!?()（）\[\]「」『』""''《》〈〉【】]/g, ' ').replace(/\s+/g, ' ').trim();
+  const sanitizedEventName = eventName.replace(/[．。，、：；？！:;,!?()（）\[\]「」『』""''《》〈〉【】&\-~]/g, ' ').replace(/\s+/g, ' ').trim();
 
   try {
     // [核心修正] 不再使用 site: 限定搜尋，因為冷門詞彙在特定站點幾乎沒有結果
