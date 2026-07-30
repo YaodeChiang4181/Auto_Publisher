@@ -94,19 +94,36 @@ export async function fetchTrendingForEvent(eventId: string, eventName: string) 
   // 5. Save to Cache
   const savedResults = [];
   for (const r of topResults) {
-    try {
-      const saved = await prisma.trendingResult.create({
-        data: {
-          eventId,
-          platform: r.platform,
-          title: r.title,
-          snippet: r.snippet.substring(0, 190),
-          url: r.url
-        }
-      });
-      savedResults.push(saved);
-    } catch (dbError) {
-      console.error(`[Scraper Engine] DB save error:`, dbError);
+    // 不要把 fallback 存進資料庫，這樣下次進來才有機會重新爬取真正的文章
+    const isFallback = r.url.includes('tw.search.yahoo.com/search?p=');
+    
+    if (!isFallback) {
+      try {
+        const saved = await prisma.trendingResult.create({
+          data: {
+            eventId,
+            platform: r.platform,
+            title: r.title,
+            snippet: r.snippet.substring(0, 190),
+            url: r.url
+          }
+        });
+        savedResults.push(saved);
+      } catch (dbError) {
+        console.error(`[Scraper Engine] DB save error:`, dbError);
+      }
+    } else {
+      // 如果是 fallback，直接放入回傳陣列，但不存入資料庫
+      savedResults.push({
+        id: 'fallback-' + Date.now(),
+        eventId,
+        platform: r.platform,
+        title: r.title,
+        snippet: r.snippet,
+        url: r.url,
+        imageUrl: null,
+        createdAt: new Date()
+      } as any);
     }
   }
 
