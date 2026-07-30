@@ -546,7 +546,7 @@ server.post('/api/webhooks/push', async (request, reply) => {
 });
 
 // 診斷工具 API (用於排解無法收到推播的問題)
-server.get('/api/diagnostics', async (request, reply) => {
+server.get('/api/diagnostics', async (_request, reply) => {
   try {
     const publicUrl = (process.env.PUBLIC_URL || 'https://auto-publisher.vercel.app').replace(/\/$/, '');
     const hasQstashToken = !!process.env.QSTASH_TOKEN;
