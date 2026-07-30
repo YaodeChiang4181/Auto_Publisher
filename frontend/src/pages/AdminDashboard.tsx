@@ -624,23 +624,27 @@ const AdminDashboard = () => {
                   <input type="text" value={adTitle} onChange={e => setAdTitle(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder={adType === 'OFFICIAL_REVIEW' ? "例如：導演親自解析：結尾的三個隱喻" : "例如：超值爆米花套餐"} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>廣告描述</label>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>{adType === 'OFFICIAL_REVIEW' ? '解析描述' : '廣告描述'}</label>
                   <input type="text" value={adDescription} onChange={e => setAdDescription(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="非必填簡短描述" />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>導購連結 (選填)</label>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>{adType === 'OFFICIAL_REVIEW' ? '解析連結 (選填)' : '導購連結 (選填)'}</label>
                   <input type="url" value={adLinkUrl} onChange={e => setAdLinkUrl(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="https://..." />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>圖片或動畫 (最大 5MB, 選填)</label>
-                  <input id="adFileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleFileChange} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>{adType === 'OFFICIAL_REVIEW' ? 'PDF檔案 (最大 15MB, 選填)' : '圖片或動畫 (最大 5MB, 選填)'}</label>
+                  <input id="adFileInput" type="file" accept={adType === 'OFFICIAL_REVIEW' ? 'application/pdf' : 'image/jpeg,image/png,image/webp,image/gif'} onChange={handleFileChange} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
                   <div style={{ fontSize: '0.8rem', color: '#ffcc00', marginTop: '0.5rem' }}>
-                    ⚠️ 請注意展覽尺寸建議比例為（16：9）或橫幅長條圖（高度 160px），以確保最佳展示效果。
+                    {adType === 'OFFICIAL_REVIEW' ? '⚠️ 請上傳清晰的 PDF 檔案，供使用者下載或閱讀。' : '⚠️ 請注意展覽尺寸建議比例為（16：9）或橫幅長條圖（高度 160px），以確保最佳展示效果。'}
                   </div>
                   {adFile && (
                     <div style={{ marginTop: '1rem', border: '1px dashed rgba(255,255,255,0.3)', padding: '0.5rem', borderRadius: '8px', textAlign: 'center' }}>
                       <p style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', marginBottom: '0.5rem' }}>上傳前預覽 (直接讀取本地檔案，未使用 Base64)</p>
-                      <img src={URL.createObjectURL(adFile)} alt="預覽" style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '4px', objectFit: 'contain' }} />
+                      {adFile.type === 'application/pdf' ? (
+                        <p style={{ fontSize: '0.9rem' }}>📄 {adFile.name}</p>
+                      ) : (
+                        <img src={URL.createObjectURL(adFile)} alt="預覽" style={{ maxWidth: '100%', maxHeight: '200px', borderRadius: '4px', objectFit: 'contain' }} />
+                      )}
                     </div>
                   )}
                 </div>
