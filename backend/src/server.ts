@@ -16,6 +16,7 @@ import adminRoutes from './routes/admin';
 import unlockRoutes from './routes/unlock';
 import analyticsRoutes from './routes/analytics';
 import superadminRoutes from './routes/superadmin';
+import gmRoutes from './routes/gm';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -129,6 +130,7 @@ server.register(adminRoutes, { prefix: '/api/admin' });
 server.register(unlockRoutes, { prefix: '/api/unlock' });
 server.register(analyticsRoutes, { prefix: '/api/analytics' });
 server.register(superadminRoutes, { prefix: '/api/superadmin' });
+server.register(gmRoutes, { prefix: '/api/gm' });
 
 // API: Generate Dynamic QR Code Token
 // Request expects: ?eventId=xxx&venueId=yyy
@@ -499,6 +501,26 @@ server.post('/api/webhooks/push', async (request, reply) => {
 
   server.log.info(`[QStash] Exact Unlock Triggered for Event ${eventId}`);
   try {
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    if (!event) return reply.status(404).send({ error: 'Event not found' });
+
+    // ==========================================
+    // [Failsafe] 防呆延遲重發機制
+    // 如果現在的時間還沒到最新的 unlockTime (可能被 GM 延後了)，則重新註冊一個新排程並結束本次執行。
+    // ==========================================
+    if (Date.now() < event.unlockTime.getTime()) {
+      server.log.info(`[Failsafe] Event ${eventId} was delayed. Rescheduling for ${event.unlockTime.toISOString()}`);
+      const publicUrl = (process.env.PUBLIC_URL || 'https://auto-publisher.vercel.app').replace(/\/$/, '');
+      if (process.env.QSTASH_TOKEN) {
+        await qstash.publishJSON({
+          url: `${publicUrl}/api/webhooks/push`,
+          body: { eventId },
+          notBefore: Math.floor(event.unlockTime.getTime() / 1000),
+        });
+      }
+      return { success: true, message: 'Rescheduled successfully due to GM delay' };
+    }
+
     // 1. 找出這個 Event 底下所有尚未解鎖的 Session
     const sessions = await prisma.session.findMany({
       where: { eventId, isUnlocked: false }
@@ -512,18 +534,173 @@ server.post('/api/webhooks/push', async (request, reply) => {
       data: { isUnlocked: true }
     });
 
+    // --- 準備 Flex Message 卡片內容 ---
+    // 優先：取得商家設定的 PushContent (最多 3 筆)
+    const pushContents = await prisma.pushContent.findMany({
+      where: { eventId },
+      orderBy: { createdAt: 'asc' },
+      take: 3
+    });
+
+    let flexCards: line.FlexBubble[] = pushContents.map((pc: any) => {
+      const isImage = pc.contentUrl && pc.contentUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i);
+      const imageUrl = isImage ? pc.contentUrl : 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&q=80&w=1000'; // 預設電影院圖片
+      
+      const actionUri = pc.merchLink || pc.contentUrl || 'https://auto-publisher.vercel.app';
+      // LINE URI limit, simple check
+      const validUri = actionUri.startsWith('http') ? actionUri : 'https://auto-publisher.vercel.app';
+
+      return {
+        type: 'bubble',
+        hero: {
+          type: 'image',
+          url: imageUrl,
+          size: 'full',
+          aspectRatio: '20:13',
+          aspectMode: 'cover'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '【官方專屬內容】',
+              weight: 'bold',
+              color: '#1DB446',
+              size: 'sm'
+            },
+            {
+              type: 'text',
+              text: pc.title,
+              weight: 'bold',
+              size: 'xl',
+              margin: 'md',
+              wrap: true
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: {
+                type: 'uri',
+                label: pc.couponCode ? `領取: ${pc.couponCode}` : '立即查看',
+                uri: validUri
+              }
+            }
+          ]
+        }
+      } as line.FlexBubble;
+    });
+
+    // 補位：如果商家提供的卡片少於 3 張，由爬蟲內容 (TrendingResult) 補齊
+    if (flexCards.length < 3) {
+      const trendingResults = await prisma.trendingResult.findMany({
+        where: { eventId },
+        orderBy: { createdAt: 'desc' },
+        take: 3 - flexCards.length
+      });
+
+      const crawlerCards: line.FlexBubble[] = trendingResults.map((tr: any) => {
+        const imageUrl = tr.imageUrl || 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?auto=format&fit=crop&q=80&w=1000';
+        return {
+          type: 'bubble',
+          hero: {
+            type: 'image',
+            url: imageUrl,
+            size: 'full',
+            aspectRatio: '20:13',
+            aspectMode: 'cover'
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: `【全網熱議 - ${tr.platform}】`,
+                weight: 'bold',
+                color: '#ff6b6b',
+                size: 'sm'
+              },
+              {
+                type: 'text',
+                text: tr.title,
+                weight: 'bold',
+                size: 'lg',
+                margin: 'md',
+                wrap: true
+              },
+              {
+                type: 'text',
+                text: tr.snippet || '點擊查看更多討論內容...',
+                size: 'sm',
+                color: '#999999',
+                wrap: true,
+                margin: 'md',
+                maxLines: 2
+              }
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'secondary',
+                height: 'sm',
+                action: {
+                  type: 'uri',
+                  label: '看網友怎麼說',
+                  uri: tr.url
+                }
+              }
+            ]
+          }
+        } as line.FlexBubble;
+      });
+
+      flexCards = flexCards.concat(crawlerCards);
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    let messagePayload: line.Message;
+
+    if (flexCards.length === 0) {
+      // 萬一連爬蟲都沒抓到資料，Fallback 到純文字
+      messagePayload = {
+        type: 'text',
+        text: `彩蛋已解鎖！\n您觀看的活動已結束，點擊查看專屬深度討論與彩蛋解析：\n${frontendUrl}/unlock/${eventId}`
+      };
+    } else {
+      // 送出 Carousel 輪播 Flex Message
+      messagePayload = {
+        type: 'flex',
+        altText: '活動專屬內容與彩蛋解析已解鎖！',
+        contents: {
+          type: 'carousel',
+          contents: flexCards
+        }
+      };
+    }
+
     // 3. 找出所有訂閱推播的觀眾，發送 LINE 通知
     const pushPromises = sessions
       .filter(s => s.lineUserId)
       .map(async (s) => {
         try {
-          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
           await lineClient.pushMessage({
             to: s.lineUserId as string,
-            messages: [{
-              type: 'text',
-              text: `彩蛋已解鎖！\n您觀看的活動已結束，點擊查看專屬深度討論與彩蛋解析：\n${frontendUrl}/unlock/${eventId}`
-            }]
+            messages: [messagePayload]
           });
           // 同步更新每位使用者的 Redis 狀態快取，讓等候室瞬間放行
           await redis.setex(`session_status:${s.browserToken}`, 3600, JSON.stringify({
@@ -542,6 +719,107 @@ server.post('/api/webhooks/push', async (request, reply) => {
   } catch (error) {
     server.log.error(error as Error, '[QStash] Push Trigger failed');
     return reply.status(500).send({ error: 'Push trigger failed' });
+  }
+});
+
+// Webhook 3: GM 預警提醒 (結束前 10 分鐘觸發)
+server.post('/api/webhooks/gm-warning', async (request, reply) => {
+  const { eventId } = request.body as any;
+  if (!eventId) return reply.status(400).send({ error: 'Missing eventId' });
+
+  server.log.info(`[QStash] GM Warning Triggered for Event ${eventId}`);
+  try {
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    if (!event) return reply.status(404).send({ error: 'Event not found' });
+
+    // Failsafe: if the event unlockTime was moved very far into the future, we should probably reschedule this warning.
+    // We send a warning 10 minutes before unlockTime.
+    const expectedWarningTime = new Date(event.unlockTime.getTime() - 10 * 60 * 1000);
+    // If it's more than 5 minutes too early for the current expected warning time, reschedule it.
+    if (Date.now() < expectedWarningTime.getTime() - 5 * 60 * 1000) {
+       server.log.info(`[Failsafe] Event ${eventId} was delayed. Rescheduling GM Warning for ${expectedWarningTime.toISOString()}`);
+       const publicUrl = (process.env.PUBLIC_URL || 'https://auto-publisher.vercel.app').replace(/\/$/, '');
+       if (process.env.QSTASH_TOKEN) {
+         await qstash.publishJSON({
+           url: `${publicUrl}/api/webhooks/gm-warning`,
+           body: { eventId },
+           notBefore: Math.floor(expectedWarningTime.getTime() / 1000),
+         });
+       }
+       return { success: true, message: 'Warning rescheduled' };
+    }
+
+    if (!event.gmLineUserId || !event.gmControlToken) {
+      server.log.warn(`[QStash] Event ${eventId} has no bound GM LINE ID or token. Skipping warning.`);
+      return { success: true, message: 'No GM bound' };
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const controlPanelUrl = `${frontendUrl}/gm/${event.gmControlToken}`;
+    const formattedTime = new Date(event.unlockTime).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+
+    // 發送 GM 預警 Flex Message
+    await lineClient.pushMessage({
+      to: event.gmLineUserId,
+      messages: [{
+        type: 'flex',
+        altText: `［系統提醒］《${event.name}》即將於 10 分鐘後發送散場真相。`,
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '⚠️ 系統預警提醒',
+                weight: 'bold',
+                color: '#ff0000',
+                size: 'sm'
+              },
+              {
+                type: 'text',
+                text: `《${event.name}》預計於 ${formattedTime} 自動發送散場真相。`,
+                weight: 'bold',
+                size: 'md',
+                margin: 'md',
+                wrap: true
+              },
+              {
+                type: 'text',
+                text: '若遊戲順利，請無視此訊息；若拖場請點擊下方調整時間：',
+                size: 'sm',
+                color: '#666666',
+                wrap: true,
+                margin: 'sm'
+              }
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'secondary',
+                height: 'sm',
+                action: {
+                  type: 'uri',
+                  label: '進入控制台',
+                  uri: controlPanelUrl
+                }
+              }
+            ]
+          }
+        }
+      }]
+    });
+
+    return { success: true, message: 'GM warning sent' };
+  } catch (error) {
+    server.log.error(error as Error, '[QStash] GM Warning failed');
+    return reply.status(500).send({ error: 'GM warning failed' });
   }
 });
 

@@ -7,6 +7,7 @@ import UnlockPage from './pages/UnlockPage';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import GMControlPanel from './pages/GMControlPanel';
 import './index.css';
 
 const AppContent = () => {
@@ -49,6 +50,7 @@ const AppContent = () => {
         <Route path="/scan" element={<ScanPage />} />
         <Route path="/wait" element={<WaitRoom />} />
         <Route path="/unlock/:eventId" element={<UnlockPage />} />
+        <Route path="/gm/:token" element={<GMControlPanel />} />
         <Route path="*" element={<Navigate to="/admin/login" replace />} />
       </Routes>
     </div>

@@ -222,7 +222,7 @@ export default async function adminRoutes(server: FastifyInstance) {
     const whereClause = user.role === 'SUPER_ADMIN' ? {} : { venueId: user.venueId };
     const events = await prisma.event.findMany({
       where: whereClause,
-      include: { scanStats: true },
+      include: { scanStats: true, pushContents: { orderBy: { createdAt: 'asc' } } },
       orderBy: { startTime: 'asc' }
     });
 
@@ -314,14 +314,24 @@ export default async function adminRoutes(server: FastifyInstance) {
       return reply.status(400).send({ error: 'Missing required fields' });
     }
 
+    const requestedUnlockTime = new Date(unlockTime);
+    // 實作防呆機制：加上 5 分鐘安全緩衝
+    const bufferedUnlockTime = new Date(requestedUnlockTime.getTime() + 5 * 60 * 1000);
+    // GM 預警機制：在原訂結束前 10 分鐘發送
+    const gmWarningTime = new Date(requestedUnlockTime.getTime() - 10 * 60 * 1000);
+
+    const crypto = await import('crypto');
+    const gmControlToken = crypto.randomBytes(16).toString('hex');
+
     const newEvent = await prisma.event.create({
       data: {
         name,
         startTime: new Date(startTime),
-        unlockTime: new Date(unlockTime),
+        unlockTime: bufferedUnlockTime,
         venueId: user.venueId,
         externalId: `manual_${Date.now()}`,
-        externalMeta: { source: 'manual' }
+        externalMeta: { source: 'manual', originalUnlockTime: requestedUnlockTime.toISOString() },
+        gmControlToken
       }
     });
 
@@ -351,15 +361,24 @@ export default async function adminRoutes(server: FastifyInstance) {
           });
         }
 
-        // 2. 準點推播 (Push Notifications)
-        if (unlockDate.getTime() > Date.now()) {
+        // 2. 準點推播 (Push Notifications) - 這裡已經是 bufferedUnlockTime (延後了 5 分鐘)
+        if (bufferedUnlockTime.getTime() > Date.now()) {
           await qstash.publishJSON({
             url: `${publicUrl}/api/webhooks/push`,
             body: { eventId: newEvent.id },
-            notBefore: Math.floor(unlockDate.getTime() / 1000),
+            notBefore: Math.floor(bufferedUnlockTime.getTime() / 1000),
           });
         }
         
+        // 3. GM 預警提醒 (10分鐘前)
+        if (gmWarningTime.getTime() > Date.now()) {
+          await qstash.publishJSON({
+            url: `${publicUrl}/api/webhooks/gm-warning`,
+            body: { eventId: newEvent.id },
+            notBefore: Math.floor(gmWarningTime.getTime() / 1000),
+          });
+        }
+
         server.log.info(`[QStash] Scheduled Webhooks for Event ${newEvent.id}`);
       } else {
         server.log.warn(`[QStash] Skipped scheduling: QSTASH_TOKEN missing.`);
@@ -604,5 +623,168 @@ export default async function adminRoutes(server: FastifyInstance) {
     });
 
     return { success: true, savedLocations: locations };
+  });
+
+  // ==========================================
+  // PushContent 管理 (商家單場次推播卡片)
+  // ==========================================
+
+  // 取得特定活動的推播內容
+  server.get('/events/:id/push-contents', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const user = request.user as any;
+    
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event) return reply.status(404).send({ error: 'Event not found' });
+    if (event.venueId !== user.venueId && user.role !== 'SUPER_ADMIN') {
+      return reply.status(403).send({ error: 'Permission denied' });
+    }
+
+    const contents = await prisma.pushContent.findMany({
+      where: { eventId: id },
+      orderBy: { createdAt: 'asc' }
+    });
+    return contents;
+  });
+
+  // 新增推播內容 (支援 15MB 以內的圖片或 PDF 檔案上傳)
+  server.post('/events/:id/push-contents', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const user = request.user as any;
+
+    const event = await prisma.event.findUnique({ where: { id }, include: { pushContents: true } });
+    if (!event) return reply.status(404).send({ error: 'Event not found' });
+    if (event.venueId !== user.venueId && user.role !== 'SUPER_ADMIN') {
+      return reply.status(403).send({ error: 'Permission denied' });
+    }
+
+    if (event.pushContents.length >= 3) {
+      return reply.status(400).send({ error: '每個活動最多只能設定 3 張推播卡片' });
+    }
+
+    // 檢查目前已有多少個「檔案類型」的內容
+    const existingFileContents = event.pushContents.filter(c => c.contentUrl && c.contentUrl.includes('media/'));
+    const maxFiles = 2;
+
+    const parts = request.parts();
+    let title = '';
+    let merchLink = '';
+    let couponCode = '';
+    let uploadedFileUrl = '';
+    let hasFileInRequest = false;
+
+    for await (const part of parts) {
+      if (part.type === 'file') {
+        hasFileInRequest = true;
+        if (existingFileContents.length >= maxFiles) {
+          return reply.status(400).send({ error: `最多只能直接上傳 ${maxFiles} 個檔案，其餘請使用外部連結` });
+        }
+
+        const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+        if (!allowedMimes.includes(part.mimetype)) {
+          return reply.status(400).send({ error: '不支援的檔案格式，請上傳 JPG, PNG, WEBP, GIF 或 PDF' });
+        }
+        
+        const ext = path.extname(part.filename).toLowerCase();
+        const safeExts = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.pdf'];
+        if (!safeExts.includes(ext)) {
+          return reply.status(400).send({ error: '副檔名異常' });
+        }
+
+        const chunks: Buffer[] = [];
+        for await (const chunk of part.file) {
+          chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+        
+        // 15MB 限制檢查
+        if (buffer.length > 15 * 1024 * 1024) {
+          return reply.status(400).send({ error: '檔案大小超過 15MB 限制' });
+        }
+        
+        const s3Endpoint = process.env.S3_ENDPOINT;
+        const s3KeyId = process.env.S3_ACCESS_KEY_ID;
+        const s3Secret = process.env.S3_SECRET_ACCESS_KEY;
+        const s3Bucket = process.env.S3_BUCKET_NAME;
+        const s3PublicDomain = process.env.S3_PUBLIC_DOMAIN;
+
+        if (!s3Endpoint || !s3KeyId || !s3Secret || !s3Bucket || !s3PublicDomain) {
+          return reply.status(500).send({ error: '雲端儲存 (S3) 環境變數未設定，無法上傳檔案。' });
+        }
+
+        try {
+          const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+          const s3 = new S3Client({
+            region: 'auto',
+            endpoint: s3Endpoint,
+            credentials: { accessKeyId: s3KeyId, secretAccessKey: s3Secret },
+          });
+
+          const crypto = await import('crypto');
+          const uniqueId = crypto.randomBytes(8).toString('hex');
+          const fileExt = path.extname(part.filename).toLowerCase();
+          const objectKey = `media/push-${Date.now()}-${uniqueId}${fileExt}`;
+
+          await s3.send(new PutObjectCommand({
+            Bucket: s3Bucket,
+            Key: objectKey,
+            Body: buffer,
+            ContentType: part.mimetype,
+          }));
+
+          const baseUrl = s3PublicDomain.endsWith('/') ? s3PublicDomain.slice(0, -1) : s3PublicDomain;
+          uploadedFileUrl = `${baseUrl}/${objectKey}`;
+        } catch (s3Error) {
+          server.log.error(s3Error, 'S3 Upload FAILED');
+          return reply.status(500).send({ error: '上傳檔案至雲端失敗，請稍後再試。' });
+        }
+      } else {
+        if (part.fieldname === 'title') title = part.value as string;
+        if (part.fieldname === 'merchLink') merchLink = part.value as string;
+        if (part.fieldname === 'couponCode') couponCode = part.value as string;
+      }
+    }
+
+    if (!title) {
+      return reply.status(400).send({ error: '推播標題為必填欄位' });
+    }
+
+    if (!hasFileInRequest && !merchLink) {
+       return reply.status(400).send({ error: '請至少提供檔案或外部連結' });
+    }
+
+    const contentUrl = uploadedFileUrl || null;
+
+    const pushContent = await prisma.pushContent.create({
+      data: {
+        eventId: id,
+        title,
+        contentUrl,
+        merchLink: merchLink || null,
+        couponCode: couponCode || null
+      }
+    });
+
+    return pushContent;
+  });
+
+  // 刪除推播內容
+  server.delete('/push-contents/:id', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const user = request.user as any;
+
+    const content = await prisma.pushContent.findUnique({ 
+      where: { id },
+      include: { event: true }
+    });
+    
+    if (!content) return reply.status(404).send({ error: 'Content not found' });
+    if (content.event.venueId !== user.venueId && user.role !== 'SUPER_ADMIN') {
+      return reply.status(403).send({ error: 'Permission denied' });
+    }
+
+    // 可選：實體刪除 S3 上的檔案，但為了簡單先直接刪除資料庫記錄
+    await prisma.pushContent.delete({ where: { id } });
+    return { success: true };
   });
 }

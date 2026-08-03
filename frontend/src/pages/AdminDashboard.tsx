@@ -33,6 +33,14 @@ const AdminDashboard = () => {
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [setup2FAMode, setSetup2FAMode] = useState(false);
 
+  // Push Content state
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
+  const [pcTitle, setPcTitle] = useState('');
+  const [pcMerchLink, setPcMerchLink] = useState('');
+  const [pcCouponCode, setPcCouponCode] = useState('');
+  const [pcFile, setPcFile] = useState<File | null>(null);
+  const [isUploadingPc, setIsUploadingPc] = useState(false);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -362,6 +370,91 @@ const AdminDashboard = () => {
     }
   };
 
+  const handlePcFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 15 * 1024 * 1024) {
+        alert('檔案大小超過 15MB 限制。');
+        e.target.value = '';
+        return;
+      }
+      setPcFile(file);
+    }
+  };
+
+  const handleUploadPushContent = async (e: React.FormEvent, eventId: string) => {
+    e.preventDefault();
+    if (!pcFile && !pcMerchLink) {
+      alert('請至少提供「檔案」或「外部連結」。');
+      return;
+    }
+    setIsUploadingPc(true);
+    try {
+      const formData = new FormData();
+      formData.append('title', pcTitle);
+      formData.append('merchLink', pcMerchLink);
+      formData.append('couponCode', pcCouponCode);
+      if (pcFile) {
+        formData.append('file', pcFile);
+      }
+
+      const res = await fetch(`/api/admin/events/${eventId}/push-contents`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      
+      setEvents(events.map(ev => {
+        if (ev.id === eventId) {
+          return { ...ev, pushContents: [...(ev.pushContents || []), data] };
+        }
+        return ev;
+      }));
+
+      setPcTitle('');
+      setPcMerchLink('');
+      setPcCouponCode('');
+      setPcFile(null);
+      const fileInput = document.getElementById(`pcFileInput-${eventId}`) as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+      
+      alert('推播內容上傳成功！');
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsUploadingPc(false);
+    }
+  };
+
+  const handleDeletePushContent = async (eventId: string, pcId: string) => {
+    if (!confirm('確定要刪除這筆推播內容嗎？')) return;
+    try {
+      const res = await fetch(`/api/admin/push-contents/${pcId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setEvents(events.map(ev => {
+          if (ev.id === eventId) {
+            return { ...ev, pushContents: (ev.pushContents || []).filter((pc: any) => pc.id !== pcId) };
+          }
+          return ev;
+        }));
+      } else {
+        const error = await res.json();
+        alert(error.error || '刪除失敗');
+      }
+    } catch (e) {
+      alert('刪除時發生錯誤');
+    }
+  };
+
+  const handleCopyGMLink = (token: string) => {
+    const url = `${window.location.origin}/gm/${token}`;
+    navigator.clipboard.writeText(url)
+      .then(() => alert('GM 控制台連結已複製！\n請將此連結傳給 GM 手機開啟，進行時間控制與接收防呆預警。'))
+      .catch(() => alert('複製失敗，請手動複製: ' + url));
+  };
+
   if (loading) {
     return <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem', margin: '2rem auto', maxWidth: '400px' }}>載入中...</div>;
   }
@@ -525,20 +618,92 @@ const AdminDashboard = () => {
             </div>
           ) : (
             events.map((event) => (
-              <div key={event.id} style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                <div style={{ textAlign: 'left', flex: '1 1 200px' }}>
-                  <div style={{ fontWeight: 600, fontSize: '1.2rem', color: '#fff', marginBottom: '0.5rem' }}>{event.name}</div>
-                  <div className="text-muted" style={{ fontSize: '0.9rem' }}>開始： {new Date(event.startTime).toLocaleString()}</div>
-                  <div className="text-muted" style={{ fontSize: '0.9rem' }}>結束： {new Date(event.unlockTime).toLocaleString()}</div>
+              <div key={event.id} style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div style={{ textAlign: 'left', flex: '1 1 200px' }}>
+                    <div style={{ fontWeight: 600, fontSize: '1.2rem', color: '#fff', marginBottom: '0.5rem' }}>{event.name}</div>
+                    <div className="text-muted" style={{ fontSize: '0.9rem' }}>開始： {new Date(event.startTime).toLocaleString()}</div>
+                    <div className="text-muted" style={{ fontSize: '0.9rem' }}>結束： {new Date(event.unlockTime).toLocaleString()}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', width: '100%', justifyContent: 'flex-start' }}>
+                    <button onClick={() => handleDeleteEvent(event.id)} style={{ flex: '1 1 80px', minWidth: '80px', background: 'rgba(255, 60, 60, 0.2)', border: '1px solid #ff3c3c', color: '#ff3c3c', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                      刪除
+                    </button>
+                    <button onClick={() => handleStartKiosk(event.id, event.venueId)} style={{ flex: '1 1 120px', minWidth: '120px', background: 'rgba(0, 163, 255, 0.2)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                      啟動數位看板
+                    </button>
+                    {event.gmControlToken && (
+                      <button 
+                        onClick={() => handleCopyGMLink(event.gmControlToken)} 
+                        style={{ flex: '1 1 120px', minWidth: '120px', background: 'rgba(250, 204, 21, 0.2)', border: '1px solid #facc15', color: '#facc15', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}
+                      >
+                        複製 GM 連結
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => setExpandedEventId(expandedEventId === event.id ? null : event.id)} 
+                      style={{ flex: '1 1 150px', minWidth: '120px', background: 'var(--accent-primary)', border: 'none', color: 'black', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}
+                    >
+                      {expandedEventId === event.id ? '收起推播設定' : '推播卡片管理'}
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', width: '100%', justifyContent: 'flex-start' }}>
-                  <button onClick={() => handleDeleteEvent(event.id)} style={{ flex: '1 1 100px', minWidth: '80px', background: 'rgba(255, 60, 60, 0.2)', border: '1px solid #ff3c3c', color: '#ff3c3c', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                    刪除
-                  </button>
-                  <button onClick={() => handleStartKiosk(event.id, event.venueId)} style={{ flex: '2 1 150px', minWidth: '120px', background: 'rgba(0, 163, 255, 0.2)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                    啟動數位看板
-                  </button>
-                </div>
+
+                {expandedEventId === event.id && (
+                  <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                    <h4 style={{ color: 'var(--accent-primary)', marginBottom: '1rem', fontSize: '1.1rem' }}>管理專屬推播卡片 ({event.pushContents?.length || 0}/3)</h4>
+                    <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
+                      最多可設定 3 張卡片，不足的卡片將由系統自動抓取「全網熱議爬蟲」補齊。
+                      (最多允許上傳 2 個直接檔案，其餘請使用外部連結)
+                    </p>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+                      {(event.pushContents || []).map((pc: any, idx: number) => (
+                        <div key={pc.id} style={{ flex: '1 1 250px', background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', position: 'relative' }}>
+                          <div style={{ position: 'absolute', top: 5, left: 5, background: 'rgba(250, 204, 21, 0.9)', color: 'black', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                            卡片 {idx + 1}
+                          </div>
+                          <div style={{ marginTop: '1.5rem' }}>
+                            <div style={{ fontWeight: 'bold', fontSize: '1rem', marginBottom: '0.5rem', color: 'white' }}>{pc.title}</div>
+                            {pc.couponCode && <div style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', marginBottom: '0.2rem' }}>優惠碼: {pc.couponCode}</div>}
+                            {pc.merchLink && <div style={{ fontSize: '0.8rem', color: '#999', marginBottom: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>連結: {pc.merchLink}</div>}
+                            {pc.contentUrl && <div style={{ fontSize: '0.8rem', color: '#999', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>媒體: 已上傳</div>}
+                          </div>
+                          <button onClick={() => handleDeletePushContent(event.id, pc.id)} style={{ position: 'absolute', top: 5, right: 5, background: '#ef4444', color: 'white', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>刪除</button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {(event.pushContents?.length || 0) < 3 && (
+                      <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px dashed rgba(255,255,255,0.2)' }}>
+                        <h5 style={{ fontSize: '1rem', marginBottom: '1rem' }}>新增卡片</h5>
+                        <form onSubmit={(e) => handleUploadPushContent(e, event.id)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>推播標題 (必填)</label>
+                            <input type="text" value={pcTitle} onChange={e => setPcTitle(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：領取獨家優惠" />
+                          </div>
+                          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                            <div style={{ flex: '1 1 200px' }}>
+                              <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>外部連結 (選填)</label>
+                              <input type="url" value={pcMerchLink} onChange={e => setPcMerchLink(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="https://..." />
+                            </div>
+                            <div style={{ flex: '1 1 200px' }}>
+                              <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>按鈕上的優惠碼文字 (選填)</label>
+                              <input type="text" value={pcCouponCode} onChange={e => setPcCouponCode(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：VIP888" />
+                            </div>
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>檔案上傳 (選填, 最大 15MB, JPG/PNG/GIF/PDF)</label>
+                            <input id={`pcFileInput-${event.id}`} type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" onChange={handlePcFileChange} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
+                          </div>
+                          <button type="submit" disabled={isUploadingPc} style={{ padding: '0.6rem', background: 'var(--accent-primary)', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer', alignSelf: 'flex-start' }}>
+                            {isUploadingPc ? '上傳中...' : '確認新增'}
+                          </button>
+                        </form>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))
           )}
