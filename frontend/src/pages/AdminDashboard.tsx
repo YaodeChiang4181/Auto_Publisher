@@ -64,20 +64,25 @@ const AdminDashboard = () => {
           return;
         }
 
+        if (!meRes.ok || !eventsRes.ok || !adsRes.ok) {
+          throw new Error('API request failed');
+        }
+
         const meData = await meRes.json();
         const eventsData = await eventsRes.json();
         const adsData = await adsRes.json();
 
-        setUser(meData.user);
-        setEvents(eventsData);
-        setAds(adsData);
-        setIs2FAEnabled(meData.user.isTwoFactorEnabled);
-        
-        if (meData.user.venue) {
-          setVenueName(meData.user.venue.name || meData.user.username || '');
-          setGeoLat(meData.user.venue.geoLat.toString());
-          setGeoLng(meData.user.venue.geoLng.toString());
-          setGeoRadiusKm((meData.user.venue.geoRadius / 1000).toString());
+        setUser(meData.user || null);
+        setEvents(Array.isArray(eventsData) ? eventsData : []);
+        setAds(Array.isArray(adsData) ? adsData : []);
+        if (meData.user) {
+          setIs2FAEnabled(meData.user.isTwoFactorEnabled);
+          if (meData.user.venue) {
+            setVenueName(meData.user.venue.name || meData.user.username || '');
+            setGeoLat(meData.user.venue.geoLat.toString());
+            setGeoLng(meData.user.venue.geoLng.toString());
+            setGeoRadiusKm((meData.user.venue.geoRadius / 1000).toString());
+          }
         }
 
       } catch (error) {
