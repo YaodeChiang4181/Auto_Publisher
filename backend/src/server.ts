@@ -656,11 +656,11 @@ server.post('/api/webhooks/push', async (request, reply) => {
             contents: [
               {
                 type: 'button',
-                style: 'secondary',
+                style: 'primary',
                 height: 'sm',
                 action: {
                   type: 'uri',
-                  label: '看網友怎麼說',
+                  label: '前往閱讀',
                   uri: tr.url
                 }
               }
@@ -669,7 +669,68 @@ server.post('/api/webhooks/push', async (request, reply) => {
         } as line.FlexBubble;
       });
 
-      flexCards = flexCards.concat(crawlerCards);
+      flexCards = [...flexCards, ...crawlerCards];
+      
+      // 完美降級 (Graceful Degradation): 若補齊後依然連第 2 張卡片都沒有，代表完全沒爬到，直接給一張入口卡片
+      if (flexCards.length < 3) {
+        flexCards.push({
+          type: 'bubble',
+          hero: {
+            type: 'image',
+            url: 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?auto=format&fit=crop&q=80&w=1000',
+            size: 'full',
+            aspectRatio: '20:13',
+            aspectMode: 'cover'
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: `【全網熱議 - Yahoo 搜尋】`,
+                weight: 'bold',
+                color: '#ff6b6b',
+                size: 'sm'
+              },
+              {
+                type: 'text',
+                text: `${event.name} - 深度討論與解析`,
+                weight: 'bold',
+                size: 'lg',
+                margin: 'md',
+                wrap: true
+              },
+              {
+                type: 'text',
+                text: `系統為您精選關於「${event.name}」的熱門話題，點擊立即參與討論。`,
+                size: 'sm',
+                color: '#999999',
+                wrap: true,
+                margin: 'md',
+                maxLines: 2
+              }
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                height: 'sm',
+                action: {
+                  type: 'uri',
+                  label: '立即前往',
+                  uri: `https://tw.search.yahoo.com/search?p=${encodeURIComponent(event.name + ' 解析')}`
+                }
+              }
+            ]
+          }
+        } as line.FlexBubble);
+      }
     }
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
