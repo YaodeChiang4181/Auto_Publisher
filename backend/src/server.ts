@@ -673,7 +673,7 @@ server.post('/api/webhooks/push', async (request, reply) => {
     }
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    let messagePayload: line.Message;
+    let messagePayload: any;
 
     if (flexCards.length === 0) {
       // 萬一連爬蟲都沒抓到資料，Fallback 到純文字
@@ -761,7 +761,7 @@ server.post('/api/webhooks/gm-warning', async (request, reply) => {
     // 發送 GM 預警 Flex Message
     await lineClient.pushMessage({
       to: event.gmLineUserId as string,
-      messages: [{
+      messages: [({
         type: 'flex',
         altText: `［系統提醒］《${event.name}》即將於 10 分鐘後發送散場真相。`,
         contents: {
@@ -813,7 +813,7 @@ server.post('/api/webhooks/gm-warning', async (request, reply) => {
             ]
           }
         }
-      }]
+      }) as any]
     });
 
     return { success: true, message: 'GM warning sent' };
