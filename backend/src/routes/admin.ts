@@ -340,8 +340,7 @@ export default async function adminRoutes(server: FastifyInstance) {
     // ==========================================
     try {
       const publicUrl = (process.env.PUBLIC_URL || 'https://auto-publisher.vercel.app').replace(/\/$/, '');
-      
-      const unlockDate = new Date(unlockTime);
+
 
       if (process.env.QSTASH_TOKEN) {
         // 1. 預熱爬蟲 (Pre-warm Scraper) - 建立活動時立即執行
