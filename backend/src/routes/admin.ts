@@ -4,8 +4,8 @@ import bcrypt from 'bcryptjs';
 import QRCode from 'qrcode';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { Client as QStashClient } from '@upstash/qstash';
-
 
 const twofactor = require('node-2fa');
 
@@ -320,7 +320,6 @@ export default async function adminRoutes(server: FastifyInstance) {
     // GM 預警機制：在原訂結束前 10 分鐘發送
     const gmWarningTime = new Date(requestedUnlockTime.getTime() - 10 * 60 * 1000);
 
-    const crypto = await import('crypto');
     const gmControlToken = crypto.randomBytes(16).toString('hex');
 
     const newEvent = await prisma.event.create({

@@ -760,7 +760,7 @@ server.post('/api/webhooks/gm-warning', async (request, reply) => {
 
     // 發送 GM 預警 Flex Message
     await lineClient.pushMessage({
-      to: event.gmLineUserId,
+      to: event.gmLineUserId as string,
       messages: [{
         type: 'flex',
         altText: `［系統提醒］《${event.name}》即將於 10 分鐘後發送散場真相。`,
