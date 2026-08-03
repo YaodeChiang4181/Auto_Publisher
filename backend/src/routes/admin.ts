@@ -342,23 +342,13 @@ export default async function adminRoutes(server: FastifyInstance) {
       const publicUrl = (process.env.PUBLIC_URL || 'https://auto-publisher.vercel.app').replace(/\/$/, '');
       
       const unlockDate = new Date(unlockTime);
-      const prewarmDate = new Date(unlockDate.getTime() - 120 * 1000); // 提前 2 分鐘
 
       if (process.env.QSTASH_TOKEN) {
-        // 1. 預熱爬蟲 (Pre-warm Scraper) - 如果時間已過 2 分鐘，就立即執行
-        if (prewarmDate.getTime() > Date.now()) {
-          await qstash.publishJSON({
-            url: `${publicUrl}/api/webhooks/prewarm`,
-            body: { eventId: newEvent.id, eventName: newEvent.name },
-            notBefore: Math.floor(prewarmDate.getTime() / 1000),
-          });
-        } else {
-          // 立即執行預熱
-          await qstash.publishJSON({
-            url: `${publicUrl}/api/webhooks/prewarm`,
-            body: { eventId: newEvent.id, eventName: newEvent.name }
-          });
-        }
+        // 1. 預熱爬蟲 (Pre-warm Scraper) - 建立活動時立即執行
+        await qstash.publishJSON({
+          url: `${publicUrl}/api/webhooks/prewarm`,
+          body: { eventId: newEvent.id, eventName: newEvent.name }
+        });
 
         // 2. 準點推播 (Push Notifications) - 這裡已經是 bufferedUnlockTime (延後了 5 分鐘)
         if (bufferedUnlockTime.getTime() > Date.now()) {
