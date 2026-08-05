@@ -76,19 +76,44 @@ export async function fetchTrendingForEvent(eventId: string, eventName: string) 
     });
   }
 
-  // 去除重複網址
+  // 去除重複網址並計算繁簡體權重分數
   const uniqueUrls = new Set<string>();
-  const finalResults: ScrapedResult[] = [];
+  const scoredResults: (ScrapedResult & { score: number })[] = [];
   
-  for (const r of combinedResults) {
+  for (let i = 0; i < combinedResults.length; i++) {
+    const r = combinedResults[i];
     if (!uniqueUrls.has(r.url)) {
       uniqueUrls.add(r.url);
-      finalResults.push(r);
+      
+      // 基礎分數：根據原始搜尋排名，越前面分數越高 (假設最多 100 筆)
+      let score = 100 - i;
+      
+      // 語言權重分析
+      const fullText = r.title + " " + r.snippet;
+      const tcChars = /[這個們來發見過為後裡麼將應還僅記時關實對機網書話車學]/g;
+      const scChars = /[这个们来发见过为后里么将应还仅记时关实对机网书话车学]/g;
+      
+      const tcCount = (fullText.match(tcChars) || []).length;
+      const scCount = (fullText.match(scChars) || []).length;
+      
+      // 繁體權重稍高 (+15)，簡體權重接近 (+10)，完全沒特徵則給 (+12)
+      if (tcCount > scCount) {
+        score += 15;
+      } else if (scCount > tcCount) {
+        score += 10;
+      } else {
+        score += 12;
+      }
+
+      scoredResults.push({ ...r, score });
     }
   }
 
+  // 根據分數重新排序 (高分優先)
+  scoredResults.sort((a, b) => b.score - a.score);
+
   // 取前三名
-  const topResults = finalResults.slice(0, 3);
+  const topResults = scoredResults.slice(0, 3);
   console.log(`[Scraper Engine] Finalized ${topResults.length} results for ${eventName}`);
 
   // 5. Save to Cache
