@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ExternalLink, MessageCircle, Globe, MessagesSquare, Loader2, LockKeyhole, Star } from 'lucide-react';
 
 const UnlockPage = () => {
   const navigate = useNavigate();
-  const eventId = localStorage.getItem('eventId');
+  const { eventId: urlEventId } = useParams();
+  const eventId = urlEventId || localStorage.getItem('eventId');
+
+  useEffect(() => {
+    if (urlEventId) {
+      localStorage.setItem('eventId', urlEventId);
+    }
+  }, [urlEventId]);
   
   const [loading, setLoading] = useState(true);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
