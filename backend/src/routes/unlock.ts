@@ -48,7 +48,7 @@ export default async function unlockRoutes(server: FastifyInstance) {
   });
   server.get('/content/:eventId', async (request, reply) => {
     const { eventId } = request.params as any;
-    const sessionToken = request.cookies.sessionToken;
+    const sessionToken = request.cookies.sessionToken || request.headers.authorization?.replace('Bearer ', '');
 
     if (!sessionToken) {
       return reply.status(401).send({ error: 'Session cookie not found' });

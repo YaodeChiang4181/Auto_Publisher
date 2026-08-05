@@ -759,9 +759,16 @@ server.post('/api/webhooks/push', async (request, reply) => {
       .filter(s => s.lineUserId)
       .map(async (s) => {
         try {
+          const personalizedPayload = JSON.parse(
+            JSON.stringify(messagePayload).replace(
+              new RegExp(`${frontendUrl}/unlock/${eventId}`, 'g'),
+              `${frontendUrl}/unlock/${eventId}?t=${s.browserToken}`
+            )
+          );
+
           await lineClient.pushMessage({
             to: s.lineUserId as string,
-            messages: [messagePayload]
+            messages: [personalizedPayload]
           });
           // 同步更新每位使用者的 Redis 狀態快取，讓等候室瞬間放行
           await redis.setex(`session_status:${s.browserToken}`, 3600, JSON.stringify({

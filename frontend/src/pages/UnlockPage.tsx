@@ -44,7 +44,14 @@ const UnlockPage = () => {
 
     const fetchContent = async () => {
       try {
-        const res = await fetch(`/api/unlock/content/${eventId}`);
+        const headers: HeadersInit = {};
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('t');
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const res = await fetch(`/api/unlock/content/${eventId}`, { headers });
         if (!res.ok) {
           setErrorStatus(res.status);
           if (res.status === 401) {
