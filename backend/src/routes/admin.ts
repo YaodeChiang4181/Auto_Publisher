@@ -477,7 +477,7 @@ export default async function adminRoutes(server: FastifyInstance) {
             credentials: { accessKeyId: s3KeyId, secretAccessKey: s3Secret },
           });
 
-          const crypto = await import('crypto');
+
           const uniqueId = crypto.randomBytes(8).toString('hex');
           const fileExt = path.extname(part.filename).toLowerCase();
           const objectKey = `media/${Date.now()}-${uniqueId}${fileExt}`;
@@ -780,7 +780,7 @@ export default async function adminRoutes(server: FastifyInstance) {
   // EventCharacter 管理 (角色與專屬文本)
   // ==========================================
 
-  server.get('/events/:id/characters', { preValidation: [server.authenticate] }, async (request, reply) => {
+  server.get('/events/:id/characters', { preValidation: [server.authenticate] }, async (request, _reply) => {
     const { id } = request.params as { id: string };
     const characters = await prisma.eventCharacter.findMany({
       where: { eventId: id }
@@ -830,7 +830,7 @@ export default async function adminRoutes(server: FastifyInstance) {
               credentials: { accessKeyId: s3KeyId, secretAccessKey: s3Secret },
             });
 
-            const crypto = await import('crypto');
+
             const uniqueId = crypto.randomBytes(8).toString('hex');
             const fileExt = path.extname(part.filename).toLowerCase();
             const objectKey = `media/char-${Date.now()}-${uniqueId}${fileExt}`;
@@ -870,12 +870,12 @@ export default async function adminRoutes(server: FastifyInstance) {
         }
       });
       return character;
-    } catch (e) {
+    } catch (_e) {
       return reply.status(400).send({ error: '新增失敗，可能綁定代碼重複' });
     }
   });
 
-  server.delete('/characters/:id', { preValidation: [server.authenticate] }, async (request, reply) => {
+  server.delete('/characters/:id', { preValidation: [server.authenticate] }, async (request, _reply) => {
     const { id } = request.params as { id: string };
     await prisma.eventCharacter.delete({ where: { id } }).catch(() => {});
     return { success: true };
