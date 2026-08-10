@@ -868,6 +868,7 @@ server.post('/api/webhooks/push', async (request, reply) => {
           const character = characterMap.get(s.lineUserId);
           if (character) {
              let textMsg = `【您的專屬結局已解鎖】\n角色：${character.name}`;
+             if (character.textEnding) textMsg += `\n\n${character.textEnding}`;
              if (character.fileUrl) textMsg += `\n\n專屬檔案下載：${character.fileUrl}`;
              
              messagesToSend.push({
