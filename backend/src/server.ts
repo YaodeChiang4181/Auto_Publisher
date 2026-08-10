@@ -109,6 +109,13 @@ const qstash = new QStashClient({
 });
 
 
+// TEMP DEBUG ROUTE
+server.get('/api/debug-db', async () => {
+  const chars = await prisma.eventCharacter.findMany({ include: { event: true } });
+  const sessions = await prisma.session.findMany({ orderBy: { verifiedAt: 'desc' }, take: 5 });
+  return { chars, sessions };
+});
+
 // API: Health check & Config
 server.get('/health', async (_request, _reply) => {
   return { 
@@ -362,6 +369,25 @@ server.post('/api/line/webhook', async (request, reply) => {
         });
 
         if (session && session.eventId) {
+          // Check if user already bound a character for this event
+          const existingBinding = await prisma.eventCharacter.findFirst({
+            where: {
+              eventId: session.eventId,
+              boundLineId: lineUserId
+            }
+          });
+
+          if (existingBinding) {
+            await lineClient.replyMessage({
+              replyToken: event.replyToken,
+              messages: [{
+                type: 'text',
+                text: `⚠️ 您已經成功綁定過角色「${existingBinding.name}」囉！每個帳號只能綁定一個專屬角色。`
+              }]
+            });
+            continue;
+          }
+
           // 2. 尋找該活動下是否有這個 bindingCode 的角色
           const character = await prisma.eventCharacter.findFirst({
             where: {
@@ -382,7 +408,7 @@ server.post('/api/line/webhook', async (request, reply) => {
               replyToken: event.replyToken,
               messages: [{
                 type: 'text',
-                text: `✅ 綁定成功！\n您已綁定角色：${character.name}\n當活動結束時，您將收到專屬的文本結局。`
+                text: `✅ 綁定成功！\n您已綁定角色：${character.name}\n當活動結束時，您將收到專屬的結局卡片。`
               }]
             });
           } else {
