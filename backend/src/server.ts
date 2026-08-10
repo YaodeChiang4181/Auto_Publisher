@@ -385,7 +385,25 @@ server.post('/api/line/webhook', async (request, reply) => {
                 text: `✅ 綁定成功！\n您已綁定角色：${character.name}\n當活動結束時，您將收到專屬的文本結局。`
               }]
             });
+          } else {
+            // 找不到角色，回覆錯誤訊息方便除錯
+            await lineClient.replyMessage({
+              replyToken: event.replyToken,
+              messages: [{
+                type: 'text',
+                text: `⚠️ 找不到此角色代碼「${text}」，請確認您輸入是否正確，或是您掃描的活動場次是否正確。`
+              }]
+            });
           }
+        } else {
+          // 找不到 Session
+          await lineClient.replyMessage({
+            replyToken: event.replyToken,
+            messages: [{
+              type: 'text',
+              text: `⚠️ 您目前尚未掃描加入任何活動！請先掃描現場的 QR Code 並在網頁上完成 LINE 登入。`
+            }]
+          });
         }
       }
     }
