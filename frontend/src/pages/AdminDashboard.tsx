@@ -43,7 +43,6 @@ const AdminDashboard = () => {
 
   // Character state
   const [charName, setCharName] = useState('');
-  const [charBindingCode, setCharBindingCode] = useState('');
   const [charTextEnding, setCharTextEnding] = useState('');
   const [charFile, setCharFile] = useState<File | null>(null);
   const [isUploadingChar, setIsUploadingChar] = useState(false);
@@ -478,7 +477,7 @@ const AdminDashboard = () => {
     try {
       const formData = new FormData();
       formData.append('name', charName);
-      formData.append('bindingCode', charBindingCode);
+      formData.append('bindingCode', charName); // 使用角色名稱作為綁定代碼
       formData.append('textEnding', charTextEnding);
       if (charFile) formData.append('file', charFile);
 
@@ -498,7 +497,6 @@ const AdminDashboard = () => {
       }));
 
       setCharName('');
-      setCharBindingCode('');
       setCharTextEnding('');
       setCharFile(null);
       const fileInput = document.getElementById(`charFileInput-${eventId}`) as HTMLInputElement;
@@ -811,12 +809,8 @@ const AdminDashboard = () => {
                         <form onSubmit={(e) => handleCreateChar(e, event.id)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                             <div style={{ flex: '1 1 200px' }}>
-                              <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>角色名稱 (必填)</label>
+                              <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>角色名稱 (即玩家輸入的綁定代碼)</label>
                               <input type="text" value={charName} onChange={e => setCharName(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：警察" />
-                            </div>
-                            <div style={{ flex: '1 1 200px' }}>
-                              <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>綁定代碼 / User ID (必填)</label>
-                              <input type="text" value={charBindingCode} onChange={e => setCharBindingCode(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="玩家在 LINE 輸入的代碼" />
                             </div>
                           </div>
                           <div>
