@@ -866,15 +866,88 @@ server.post('/api/webhooks/push', async (request, reply) => {
           const messagesToSend: any[] = [personalizedPayload];
           
           const character = characterMap.get(s.lineUserId);
-          if (character) {
-             let textMsg = `【您的專屬結局已解鎖】\n角色：${character.name}`;
-             if (character.textEnding) textMsg += `\n\n${character.textEnding}`;
-             if (character.fileUrl) textMsg += `\n\n專屬檔案下載：${character.fileUrl}`;
+          if (character && personalizedPayload.type === 'flex') {
+             const characterCard: line.FlexBubble = {
+                type: 'bubble',
+                hero: {
+                  type: 'image',
+                  url: 'https://images.unsplash.com/photo-1542204165-65bf26472b9b?auto=format&fit=crop&q=80&w=1000',
+                  size: 'full',
+                  aspectRatio: '20:13',
+                  aspectMode: 'cover'
+                },
+                body: {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [
+                    {
+                      type: 'text',
+                      text: `【專屬結局解鎖】`,
+                      weight: 'bold',
+                      color: '#10b981',
+                      size: 'sm'
+                    },
+                    {
+                      type: 'text',
+                      text: `角色：${character.name}`,
+                      weight: 'bold',
+                      size: 'xl',
+                      margin: 'md',
+                      wrap: true
+                    }
+                  ]
+                },
+                footer: {
+                  type: 'box',
+                  layout: 'vertical',
+                  spacing: 'sm',
+                  contents: []
+                }
+             };
+
+             if (character.textEnding) {
+               // @ts-ignore
+               characterCard.body.contents.push({
+                 type: 'text',
+                 text: character.textEnding,
+                 size: 'sm',
+                 color: '#666666',
+                 wrap: true,
+                 margin: 'md',
+                 maxLines: 5
+               });
+             }
+
+             if (character.fileUrl) {
+               // @ts-ignore
+               characterCard.footer.contents.push({
+                 type: 'button',
+                 style: 'primary',
+                 color: '#10b981',
+                 height: 'sm',
+                 action: {
+                   type: 'uri',
+                   label: '下載專屬檔案',
+                   uri: character.fileUrl
+                 }
+               });
+             } else {
+               // @ts-ignore
+               characterCard.footer.contents.push({
+                 type: 'button',
+                 style: 'primary',
+                 color: '#10b981',
+                 height: 'sm',
+                 action: {
+                   type: 'uri',
+                   label: '查看完整結局',
+                   uri: `${frontendUrl}/unlock/${eventId}?t=${s.browserToken}`
+                 }
+               });
+             }
              
-             messagesToSend.push({
-               type: 'text',
-               text: textMsg
-             });
+             // Unshift to put it at the very first position in the carousel
+             personalizedPayload.contents.contents.unshift(characterCard);
           }
 
           await lineClient.pushMessage({
