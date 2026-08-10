@@ -660,7 +660,7 @@ server.post('/api/webhooks/push', async (request, reply) => {
 
     let flexCards: line.FlexBubble[] = pushContents.map((pc: any) => {
       const isImage = pc.contentUrl && pc.contentUrl.match(/\.(jpeg|jpg|gif|png|webp)$/i);
-      const imageUrl = isImage ? pc.contentUrl : 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&q=80&w=1000'; // 預設電影院圖片
+      const imageUrl = isImage ? pc.contentUrl : 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&q=80&w=1000'; // 拉普星球 星空主題預設圖
       
       const actionUri = pc.merchLink || pc.contentUrl || 'https://auto-publisher.vercel.app';
       // LINE URI limit, simple check
@@ -725,7 +725,7 @@ server.post('/api/webhooks/push', async (request, reply) => {
       });
 
       const crawlerCards: line.FlexBubble[] = trendingResults.map((tr: any) => {
-        const imageUrl = tr.imageUrl || 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?auto=format&fit=crop&q=80&w=1000';
+        const imageUrl = tr.imageUrl || 'https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?auto=format&fit=crop&q=80&w=1000';
         return {
           type: 'bubble',
           hero: {
@@ -796,7 +796,7 @@ server.post('/api/webhooks/push', async (request, reply) => {
       type: 'bubble',
       hero: {
         type: 'image',
-        url: 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?auto=format&fit=crop&q=80&w=1000',
+        url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&q=80&w=1000',
         size: 'full',
         aspectRatio: '20:13',
         aspectMode: 'cover'
@@ -897,7 +897,7 @@ server.post('/api/webhooks/push', async (request, reply) => {
                 type: 'bubble',
                 hero: {
                   type: 'image',
-                  url: 'https://images.unsplash.com/photo-1542204165-65bf26472b9b?auto=format&fit=crop&q=80&w=1000',
+                  url: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=1000',
                   size: 'full',
                   aspectRatio: '20:13',
                   aspectMode: 'cover'
