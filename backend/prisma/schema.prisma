@@ -161,6 +161,7 @@ model EventCharacter {
   eventId        String
   name           String   // 角色名稱
   bindingCode    String   // 綁定代碼 (商家自訂)
+  textEnding     String?  // 專屬文字結局
   fileUrl        String?  // 商家上傳的檔案位址或內容
   boundLineId    String?  // 玩家綁定後的 LINE User ID
 
