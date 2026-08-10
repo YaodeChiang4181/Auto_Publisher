@@ -88,6 +88,17 @@ export default async function unlockRoutes(server: FastifyInstance) {
       // 1. Get Trending Data
       const trending = await fetchTrendingForEvent(eventId, event.name);
 
+      // 1.5 Get Bound Character
+      let boundCharacter = null;
+      if (session && session.lineUserId) {
+        boundCharacter = await prisma.eventCharacter.findFirst({
+          where: {
+            eventId: session.eventId,
+            boundLineId: session.lineUserId
+          }
+        });
+      }
+
       // 2. Get Ads (Central + Venue specific)
       const now = new Date();
       const centralAds = await prisma.advertisement.findMany({
@@ -118,6 +129,7 @@ export default async function unlockRoutes(server: FastifyInstance) {
 
       return {
         trending,
+        boundCharacter,
         ads: {
           central: centralAds,
           venue: venueAds

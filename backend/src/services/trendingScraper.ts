@@ -30,9 +30,9 @@ export async function fetchTrendingForEvent(eventId: string, eventName: string) 
   try {
     // [核心修正] 不再使用 site: 限定搜尋，因為冷門詞彙在特定站點幾乎沒有結果
     // 改為三組不同關鍵字組合的通用搜尋，並同步使用 Bing 抓取簡體中文來源 (知乎/豆瓣/B站)
-    const query1 = `${sanitizedEventName} 解析`;
-    const query2 = `${sanitizedEventName} 心得 推薦`;
-    const query3 = `${sanitizedEventName} 剧透 评价`; // 特地用簡體字幫助 Bing 抓取
+    const query1 = `${sanitizedEventName} 解析 結局`;
+    const query2 = `${sanitizedEventName} 劇透 討論`;
+    const query3 = `${sanitizedEventName} 剧透 结局 解析`; // 特地用簡體字幫助 Bing 抓取
 
     const [results1, results2, results3, bing1, bing2] = await Promise.all([
       searchYahoo(query1, 'Web'),

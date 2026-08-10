@@ -173,6 +173,49 @@ const UnlockPage = () => {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '3rem' }}>
+        {content?.boundCharacter && (
+          <div
+            className="glass-panel"
+            style={{
+              padding: '1.5rem',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '1.5rem',
+              borderLeft: `4px solid #10b981`,
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{ position: 'absolute', top: 0, right: 0, padding: '0.25rem 0.75rem', background: '#10b981', color: '#000', fontSize: '0.8rem', fontWeight: 'bold', borderBottomLeftRadius: '8px' }}>
+              專屬結局解鎖
+            </div>
+            <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '1rem', borderRadius: '12px', flexShrink: 0 }}>
+              <LockKeyhole size={28} color="#10b981" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ marginBottom: '0.5rem', fontSize: '1.2rem', color: '#10b981', lineHeight: 1.4 }}>
+                角色：{content.boundCharacter.name}
+              </h3>
+              {content.boundCharacter.textEnding && (
+                <p style={{ color: '#fff', fontSize: '1rem', lineHeight: 1.6, whiteSpace: 'pre-wrap', marginBottom: '1rem' }}>
+                  {content.boundCharacter.textEnding}
+                </p>
+              )}
+              {content.boundCharacter.fileUrl && (
+                <a
+                  href={content.boundCharacter.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-primary"
+                  style={{ display: 'inline-block', background: '#10b981', color: '#000', padding: '0.5rem 1rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.9rem' }}
+                >
+                  下載專屬檔案
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
         {content?.trending && content.trending.length > 0 ? (
           <>
             {(content.officialReview ? content.trending.slice(0, 2) : content.trending.slice(0, 3)).map((item, idx) => (
