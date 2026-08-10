@@ -18,7 +18,8 @@ const UnlockPage = () => {
   const [content, setContent] = useState<{
     trending: any[],
     ads: { central: any[], venue: any[] },
-    officialReview?: any
+    officialReview?: any,
+    boundCharacter?: any
   } | null>(null);
   
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
