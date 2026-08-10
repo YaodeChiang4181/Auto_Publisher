@@ -37,20 +37,6 @@ const GMControlPanel = () => {
     }
   };
 
-  const handleBindLine = async (lineUserId: string) => {
-    try {
-      await fetch(`/api/gm/${token}/bind-line`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lineUserId })
-      });
-      alert('綁定成功！您將能收到拖場預警訊息。');
-      fetchEventData();
-    } catch (e) {
-      alert('綁定失敗');
-      fetchEventData();
-    }
-  };
 
   const handleStartLineLogin = () => {
     window.location.href = `/api/line/auth?gmToken=${token}`;
