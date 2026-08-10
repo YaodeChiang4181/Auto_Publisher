@@ -38,7 +38,8 @@ const UnlockPage = () => {
 
   useEffect(() => {
     if (!eventId) {
-      navigate('/', { replace: true });
+      setErrorStatus(401);
+      setLoading(false);
       return;
     }
 
@@ -54,9 +55,6 @@ const UnlockPage = () => {
         const res = await fetch(`/api/unlock/content/${eventId}`, { headers });
         if (!res.ok) {
           setErrorStatus(res.status);
-          if (res.status === 401) {
-            navigate('/', { replace: true });
-          }
           return;
         }
         
@@ -145,6 +143,18 @@ const UnlockPage = () => {
         >
           返回候車室
         </button>
+      </div>
+    );
+  }
+
+  if (errorStatus === 401 || errorStatus === 404) {
+    return (
+      <div className="flex-center" style={{ flexDirection: 'column', height: '80vh', textAlign: 'center', padding: '2rem' }}>
+        <LockKeyhole size={64} color="#f87171" style={{ marginBottom: '1.5rem' }} />
+        <h2 style={{ color: '#f87171', marginBottom: '1rem' }}>連結已失效或過期</h2>
+        <p className="text-muted" style={{ marginBottom: '2rem' }}>
+          此連結可能已經過期或不正確，請重新掃描現場 QRCode 參與活動。
+        </p>
       </div>
     );
   }

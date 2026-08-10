@@ -68,7 +68,7 @@ const WaitRoom = () => {
 
   useEffect(() => {
     if (!eventId) {
-      navigate('/', { replace: true });
+      navigate('/scan', { replace: true });
       return;
     }
 

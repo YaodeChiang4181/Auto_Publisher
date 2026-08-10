@@ -41,6 +41,13 @@ const AdminDashboard = () => {
   const [pcFile, setPcFile] = useState<File | null>(null);
   const [isUploadingPc, setIsUploadingPc] = useState(false);
 
+  // Character state
+  const [charName, setCharName] = useState('');
+  const [charBindingCode, setCharBindingCode] = useState('');
+  const [charTextEnding, setCharTextEnding] = useState('');
+  const [charFile, setCharFile] = useState<File | null>(null);
+  const [isUploadingChar, setIsUploadingChar] = useState(false);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -453,6 +460,77 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleCharFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        alert('檔案大小超過 5MB 限制。');
+        e.target.value = '';
+        return;
+      }
+      setCharFile(file);
+    }
+  };
+
+  const handleCreateChar = async (e: React.FormEvent, eventId: string) => {
+    e.preventDefault();
+    setIsUploadingChar(true);
+    try {
+      const formData = new FormData();
+      formData.append('name', charName);
+      formData.append('bindingCode', charBindingCode);
+      formData.append('textEnding', charTextEnding);
+      if (charFile) formData.append('file', charFile);
+
+      const res = await fetch(`/api/admin/events/${eventId}/characters`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Create failed');
+      
+      setEvents(events.map(ev => {
+        if (ev.id === eventId) {
+          return { ...ev, characters: [...(ev.characters || []), data] };
+        }
+        return ev;
+      }));
+
+      setCharName('');
+      setCharBindingCode('');
+      setCharTextEnding('');
+      setCharFile(null);
+      const fileInput = document.getElementById(`charFileInput-${eventId}`) as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+      
+      alert('角色新增成功！');
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsUploadingChar(false);
+    }
+  };
+
+  const handleDeleteChar = async (eventId: string, charId: string) => {
+    if (!confirm('確定要刪除這個角色嗎？')) return;
+    try {
+      const res = await fetch(`/api/admin/characters/${charId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setEvents(events.map(ev => {
+          if (ev.id === eventId) {
+            return { ...ev, characters: (ev.characters || []).filter((c: any) => c.id !== charId) };
+          }
+          return ev;
+        }));
+      } else {
+        alert('刪除失敗');
+      }
+    } catch (e) {
+      alert('刪除時發生錯誤');
+    }
+  };
+
   const handleCopyGMLink = (token: string) => {
     const url = `${window.location.origin}/gm/${token}`;
     navigator.clipboard.writeText(url)
@@ -707,6 +785,54 @@ const AdminDashboard = () => {
                         </form>
                       </div>
                     )}
+
+                    {/* 管理角色與專屬文本區塊 */}
+                    <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                      <h4 style={{ color: '#4ade80', marginBottom: '1rem', fontSize: '1.1rem' }}>管理角色與專屬結局</h4>
+                      <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
+                        建立角色並設定專屬「綁定代碼」(User ID)。玩家在 LINE 聊天室輸入該代碼即可綁定。解鎖時會推播該角色的專屬結局。
+                      </p>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+                        {(event.characters || []).map((char: any) => (
+                          <div key={char.id} style={{ flex: '1 1 250px', background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', position: 'relative' }}>
+                            <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#4ade80', marginBottom: '0.5rem' }}>{char.name}</div>
+                            <div style={{ fontSize: '0.85rem', color: '#ccc', marginBottom: '0.2rem' }}>代碼: <span style={{ color: 'white' }}>{char.bindingCode}</span></div>
+                            <div style={{ fontSize: '0.85rem', color: '#ccc', marginBottom: '0.2rem' }}>已綁定: {char.boundLineId ? '✅ 是' : '❌ 否'}</div>
+                            {char.textEnding && <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '0.5rem', maxHeight: '40px', overflow: 'hidden', textOverflow: 'ellipsis' }}>結局: {char.textEnding}</div>}
+                            {char.fileUrl && <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>附檔: {char.fileUrl}</div>}
+                            <button onClick={() => handleDeleteChar(event.id, char.id)} style={{ position: 'absolute', top: 5, right: 5, background: '#ef4444', color: 'white', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>刪除</button>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px dashed rgba(74,222,128,0.3)' }}>
+                        <h5 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#4ade80' }}>新增角色</h5>
+                        <form onSubmit={(e) => handleCreateChar(e, event.id)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                            <div style={{ flex: '1 1 200px' }}>
+                              <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>角色名稱 (必填)</label>
+                              <input type="text" value={charName} onChange={e => setCharName(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：警察" />
+                            </div>
+                            <div style={{ flex: '1 1 200px' }}>
+                              <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>綁定代碼 / User ID (必填)</label>
+                              <input type="text" value={charBindingCode} onChange={e => setCharBindingCode(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="玩家在 LINE 輸入的代碼" />
+                            </div>
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>文字結局 (選填)</label>
+                            <textarea value={charTextEnding} onChange={e => setCharTextEnding(e.target.value)} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px', minHeight: '60px' }} placeholder="給這個角色的專屬文字訊息" />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>檔案上傳 (選填, 最大 5MB, TXT/PDF/圖)</label>
+                            <input id={`charFileInput-${event.id}`} type="file" accept="text/plain,application/pdf,image/jpeg,image/png" onChange={handleCharFileChange} style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} />
+                          </div>
+                          <button type="submit" disabled={isUploadingChar} style={{ padding: '0.6rem', background: '#4ade80', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer', alignSelf: 'flex-start' }}>
+                            {isUploadingChar ? '處理中...' : '確認新增角色'}
+                          </button>
+                        </form>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

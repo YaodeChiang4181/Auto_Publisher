@@ -10,13 +10,14 @@ const GMControlPanel = () => {
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
-    // If returned from LINE login callback with a lineUserId
-    const bindLineId = searchParams.get('lineUserId');
-    if (bindLineId && token) {
-      handleBindLine(bindLineId);
-    } else {
-      fetchEventData();
+    if (searchParams.get('line_linked') === 'true') {
+      alert('綁定成功！您將能收到拖場預警訊息。');
+      window.history.replaceState({}, document.title, location.pathname);
+    } else if (searchParams.get('error') === 'auth_failed') {
+      alert('綁定失敗或已取消授權');
+      window.history.replaceState({}, document.title, location.pathname);
     }
+    fetchEventData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, searchParams]);
 
@@ -52,14 +53,7 @@ const GMControlPanel = () => {
   };
 
   const handleStartLineLogin = () => {
-    // We reuse the existing LINE login but redirect back to GM page with token
-    // A proper implementation would pass GM intent via state
-    // For simplicity in this demo, let's just prompt for an ID or use a mockup route if we had one.
-    // Assuming backend /api/line/auth supports a custom redirect or we simulate it here.
-    const mockLineId = prompt('為了演示，請直接輸入您的 LINE User ID（實務上這裡會導向 LINE Login）：');
-    if (mockLineId) {
-      handleBindLine(mockLineId);
-    }
+    window.location.href = `/api/line/auth?gmToken=${token}`;
   };
 
   const handleDelay = async (minutes: number) => {
@@ -128,9 +122,9 @@ const GMControlPanel = () => {
           <p style={{ color: '#facc15', margin: '0 0 1rem 0', fontSize: '0.9rem' }}>您尚未綁定 LINE 帳號，將無法收到 10 分鐘前的防呆預警！</p>
           <button 
             onClick={handleStartLineLogin}
-            style={{ width: '100%', background: '#06C755', color: 'white', border: 'none', padding: '0.8rem', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}
+            style={{ width: '100%', background: '#06C755', color: 'white', border: 'none', padding: '0.8rem', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
           >
-            綁定 LINE 接收預警
+            使用 LINE 登入綁定
           </button>
         </div>
       )}

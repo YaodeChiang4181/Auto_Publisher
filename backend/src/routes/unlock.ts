@@ -49,8 +49,10 @@ export default async function unlockRoutes(server: FastifyInstance) {
   server.get('/content/:eventId', async (request, reply) => {
     const { eventId } = request.params as any;
     const sessionToken = request.cookies.sessionToken || request.headers.authorization?.replace('Bearer ', '');
+    const userAgent = request.headers['user-agent'] || '';
+    const isFromLine = userAgent.includes('Line') || userAgent.includes('LINE');
 
-    if (!sessionToken) {
+    if (!sessionToken && !isFromLine) {
       return reply.status(401).send({ error: 'Session cookie not found' });
     }
 
@@ -65,17 +67,21 @@ export default async function unlockRoutes(server: FastifyInstance) {
       }
 
       // 驗證 Session 是否存在且綁定此 Event
-      const session = await prisma.session.findUnique({
-        where: { browserToken: sessionToken }
-      });
+      let session = null;
+      if (sessionToken) {
+        session = await prisma.session.findUnique({
+          where: { browserToken: sessionToken }
+        });
+      }
 
-      if (!session || session.eventId !== eventId) {
+      if ((!session || session.eventId !== eventId) && !isFromLine) {
         return reply.status(401).send({ error: 'Invalid or expired session' });
       }
 
       // 驗證時間鎖 (Time-Lock 邏輯核心)
       // 若尚未解鎖，且系統當前時間還沒超過活動解鎖時間，則擋下請求
-      if (!session.isUnlocked && new Date() < event.unlockTime) {
+      const isUnlocked = session?.isUnlocked || false;
+      if (!isUnlocked && new Date() < event.unlockTime) {
         return reply.status(403).send({ error: '活動尚未結束，無法觀看隱藏內容！(Time-Lock Enforced)' });
       }
 

@@ -46,6 +46,7 @@ model Event {
   sessions     Session[]
   trendingCache TrendingResult[]
   actionLogs   ActionLog[]
+  characters   EventCharacter[]
 }
 
 model PushContent {
@@ -153,4 +154,17 @@ model TrendingResult {
   url         String
   imageUrl    String?
   createdAt   DateTime @default(now())
+}
+
+model EventCharacter {
+  id             String   @id @default(uuid())
+  eventId        String
+  name           String   // 角色名稱
+  bindingCode    String   // 綁定代碼 (商家自訂)
+  fileUrl        String?  // 商家上傳的檔案位址或內容
+  boundLineId    String?  // 玩家綁定後的 LINE User ID
+
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  @@unique([eventId, bindingCode])
 }

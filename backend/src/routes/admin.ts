@@ -222,7 +222,7 @@ export default async function adminRoutes(server: FastifyInstance) {
     const whereClause = user.role === 'SUPER_ADMIN' ? {} : { venueId: user.venueId };
     const events = await prisma.event.findMany({
       where: whereClause,
-      include: { scanStats: true, pushContents: { orderBy: { createdAt: 'asc' } } },
+      include: { scanStats: true, pushContents: { orderBy: { createdAt: 'asc' } }, characters: true },
       orderBy: { startTime: 'asc' }
     });
 
@@ -773,6 +773,111 @@ export default async function adminRoutes(server: FastifyInstance) {
 
     // 可選：實體刪除 S3 上的檔案，但為了簡單先直接刪除資料庫記錄
     await prisma.pushContent.delete({ where: { id } });
+    return { success: true };
+  });
+
+  // ==========================================
+  // EventCharacter 管理 (角色與專屬文本)
+  // ==========================================
+
+  server.get('/events/:id/characters', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const characters = await prisma.eventCharacter.findMany({
+      where: { eventId: id }
+    });
+    return characters;
+  });
+
+  server.post('/events/:id/characters', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parts = request.parts();
+    
+    let name = '';
+    let bindingCode = '';
+    let textEnding = '';
+    let uploadedFileUrl = '';
+    
+    for await (const part of parts) {
+      if (part.type === 'file') {
+        const allowedMimes = ['text/plain', 'application/pdf', 'image/jpeg', 'image/png'];
+        if (!allowedMimes.includes(part.mimetype)) {
+          return reply.status(400).send({ error: '不支援的檔案格式，請上傳 TXT, PDF 或圖片' });
+        }
+        
+        const chunks: Buffer[] = [];
+        for await (const chunk of part.file) {
+          chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+        
+        if (buffer.length > 5 * 1024 * 1024) {
+          return reply.status(400).send({ error: '檔案大小超過 5MB 限制' });
+        }
+        
+        // S3 上傳邏輯
+        const s3Endpoint = process.env.S3_ENDPOINT;
+        const s3KeyId = process.env.S3_ACCESS_KEY_ID;
+        const s3Secret = process.env.S3_SECRET_ACCESS_KEY;
+        const s3Bucket = process.env.S3_BUCKET_NAME;
+        const s3PublicDomain = process.env.S3_PUBLIC_DOMAIN;
+
+        if (s3Endpoint && s3KeyId && s3Secret && s3Bucket && s3PublicDomain) {
+          try {
+            const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+            const s3 = new S3Client({
+              region: 'auto',
+              endpoint: s3Endpoint,
+              credentials: { accessKeyId: s3KeyId, secretAccessKey: s3Secret },
+            });
+
+            const crypto = await import('crypto');
+            const uniqueId = crypto.randomBytes(8).toString('hex');
+            const fileExt = path.extname(part.filename).toLowerCase();
+            const objectKey = `media/char-${Date.now()}-${uniqueId}${fileExt}`;
+
+            await s3.send(new PutObjectCommand({
+              Bucket: s3Bucket,
+              Key: objectKey,
+              Body: buffer,
+              ContentType: part.mimetype,
+            }));
+
+            const baseUrl = s3PublicDomain.endsWith('/') ? s3PublicDomain.slice(0, -1) : s3PublicDomain;
+            uploadedFileUrl = `${baseUrl}/${objectKey}`;
+          } catch (s3Error) {
+            server.log.error(s3Error, 'S3 Upload FAILED');
+          }
+        }
+      } else {
+        if (part.fieldname === 'name') name = part.value as string;
+        if (part.fieldname === 'bindingCode') bindingCode = part.value as string;
+        if (part.fieldname === 'textEnding') textEnding = part.value as string;
+      }
+    }
+    
+    if (!name || !bindingCode) {
+      return reply.status(400).send({ error: '角色名稱與綁定代碼為必填欄位' });
+    }
+
+    try {
+      const character = await prisma.eventCharacter.create({
+        data: {
+          eventId: id,
+          name,
+          bindingCode,
+          textEnding: textEnding || null,
+          fileUrl: uploadedFileUrl || null
+        }
+      });
+      return character;
+    } catch (e) {
+      return reply.status(400).send({ error: '新增失敗，可能綁定代碼重複' });
+    }
+  });
+
+  server.delete('/characters/:id', { preValidation: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    await prisma.eventCharacter.delete({ where: { id } }).catch(() => {});
     return { success: true };
   });
 }

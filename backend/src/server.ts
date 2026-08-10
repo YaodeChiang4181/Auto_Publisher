@@ -270,9 +270,13 @@ server.get('/api/line/auth', async (request, reply) => {
   const clientId = process.env.LINE_CHANNEL_ID;
   const redirectUri = encodeURIComponent(process.env.LINE_LOGIN_REDIRECT_URI || 'http://localhost:3000/api/line/callback');
   // State 為了安全起見應該要是隨機字串，這裡簡化處理，將 browserToken 當作 state 傳遞
-  const browserToken = request.cookies.sessionToken || '';
+  const { gmToken } = request.query as { gmToken?: string };
+  let state = request.cookies.sessionToken || '';
+  if (gmToken) {
+    state = `gm_${gmToken}`;
+  }
   
-  const authUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${browserToken}&scope=profile%20openid&bot_prompt=normal`;
+  const authUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&scope=profile%20openid&bot_prompt=normal`;
   
   reply.redirect(authUrl);
 });
@@ -283,6 +287,10 @@ server.get('/api/line/callback', async (request, reply) => {
   
   if (error || !code) {
     // 授權失敗或取消，導向回前端並帶上錯誤參數
+    if (state?.startsWith('gm_')) {
+      const gmToken = state.replace('gm_', '');
+      return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/gm/${gmToken}?error=auth_failed`);
+    }
     return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait?error=auth_failed`);
   }
 
@@ -307,20 +315,84 @@ server.get('/api/line/callback', async (request, reply) => {
     
     const userId = profileResponse.data.userId;
     
-    // 3. 將 userId 綁定到原本的 session (state 就是 browserToken)
-    const browserToken = state;
-    if (browserToken) {
-      await prisma.session.update({
-        where: { browserToken },
-        data: { lineUserId: userId }
+    // 3. 將 userId 綁定到原本的 session (state 就是 browserToken) 或 GM Event
+    if (state?.startsWith('gm_')) {
+      const gmToken = state.replace('gm_', '');
+      await prisma.event.updateMany({
+        where: { gmControlToken: gmToken },
+        data: { gmLineUserId: userId }
       });
+      return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/gm/${gmToken}?line_linked=true`);
+    } else {
+      const browserToken = state;
+      if (browserToken) {
+        await prisma.session.update({
+          where: { browserToken },
+          data: { lineUserId: userId }
+        });
+      }
+      return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait?line_linked=true`);
     }
-    
-    // 4. 成功後導向回前端 WaitRoom
-    return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait?line_linked=true`);
   } catch (err) {
     server.log.error(err);
+    if (state?.startsWith('gm_')) {
+      const gmToken = state.replace('gm_', '');
+      return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/gm/${gmToken}?error=auth_failed`);
+    }
     return reply.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/wait?error=auth_failed`);
+  }
+});
+
+// API: LINE Webhook for handling text messages (Role Binding)
+server.post('/api/line/webhook', async (request, reply) => {
+  try {
+    const body: any = request.body;
+    const events = body.events || [];
+
+    for (const event of events) {
+      if (event.type === 'message' && event.message.type === 'text') {
+        const lineUserId = event.source.userId;
+        const text = event.message.text.trim();
+
+        // 1. 找到該 user 最近的一次 Session
+        const session = await prisma.session.findFirst({
+          where: { lineUserId },
+          orderBy: { verifiedAt: 'desc' },
+          include: { event: true }
+        });
+
+        if (session && session.eventId) {
+          // 2. 尋找該活動下是否有這個 bindingCode 的角色
+          const character = await prisma.eventCharacter.findFirst({
+            where: {
+              eventId: session.eventId,
+              bindingCode: text
+            }
+          });
+
+          if (character) {
+            // 綁定角色
+            await prisma.eventCharacter.update({
+              where: { id: character.id },
+              data: { boundLineId: lineUserId }
+            });
+
+            // 回覆成功訊息
+            await lineClient.replyMessage({
+              replyToken: event.replyToken,
+              messages: [{
+                type: 'text',
+                text: `✅ 綁定成功！\n您已綁定角色：${character.name}\n當活動結束時，您將收到專屬的文本結局。`
+              }]
+            });
+          }
+        }
+      }
+    }
+    return reply.status(200).send('OK');
+  } catch (err) {
+    server.log.error(err);
+    return reply.status(500).send('Error');
   }
 });
 
@@ -754,6 +826,13 @@ server.post('/api/webhooks/push', async (request, reply) => {
       };
     }
 
+    // 3.1 取得有綁定角色的名單
+    const boundCharacters = await prisma.eventCharacter.findMany({
+      where: { eventId, boundLineId: { not: null } }
+    });
+    const characterMap = new Map();
+    boundCharacters.forEach(c => characterMap.set(c.boundLineId, c));
+
     // 3. 找出所有訂閱推播的觀眾，發送 LINE 通知
     const pushPromises = sessions
       .filter(s => s.lineUserId)
@@ -766,9 +845,22 @@ server.post('/api/webhooks/push', async (request, reply) => {
             )
           );
 
+          const messagesToSend: any[] = [personalizedPayload];
+          
+          const character = characterMap.get(s.lineUserId);
+          if (character) {
+             let textMsg = `【您的專屬結局已解鎖】\n角色：${character.name}`;
+             if (character.fileUrl) textMsg += `\n\n專屬檔案下載：${character.fileUrl}`;
+             
+             messagesToSend.push({
+               type: 'text',
+               text: textMsg
+             });
+          }
+
           await lineClient.pushMessage({
             to: s.lineUserId as string,
-            messages: [personalizedPayload]
+            messages: messagesToSend
           });
           // 同步更新每位使用者的 Redis 狀態快取，讓等候室瞬間放行
           await redis.setex(`session_status:${s.browserToken}`, 3600, JSON.stringify({
