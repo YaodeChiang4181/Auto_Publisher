@@ -75,7 +75,7 @@ export async function fetchTrendingForEvent(eventId: string, eventName: string) 
       platform: 'Web',
       title: `${eventName} - 深度討論與解析`,
       snippet: `系統為您精選關於「${eventName}」的熱門話題，點擊立即參與討論與查看評價。`,
-      url: `https://tw.search.yahoo.com/search?p=${encodeURIComponent(eventName + ' 解析')}`
+      url: `https://tw.search.yahoo.com/search?p=${encodeURIComponent(eventName + ' 劇本殺 解析')}`
     });
   }
 
