@@ -1010,6 +1010,12 @@ server.post('/api/webhooks/gm-warning', async (request, reply) => {
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) return reply.status(404).send({ error: 'Event not found' });
 
+    // 如果活動已經結束 (unlockTime 在過去)，就不需要發送預警
+    if (Date.now() >= event.unlockTime.getTime()) {
+      server.log.info(`[QStash] Event ${eventId} already ended. Skipping GM Warning.`);
+      return { success: true, message: 'Event already ended' };
+    }
+
     // Failsafe: if the event unlockTime was moved very far into the future, we should probably reschedule this warning.
     // We send a warning 10 minutes before unlockTime.
     const expectedWarningTime = new Date(event.unlockTime.getTime() - 10 * 60 * 1000);
