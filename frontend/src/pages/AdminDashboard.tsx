@@ -26,6 +26,7 @@ const AdminDashboard = () => {
   const [newEventName, setNewEventName] = useState('');
   const [newEventStartTime, setNewEventStartTime] = useState('');
   const [newEventDuration, setNewEventDuration] = useState('');
+  const [duplicateEventId, setDuplicateEventId] = useState<string | null>(null);
 
   // 2FA state
   const [is2FAEnabled, setIs2FAEnabled] = useState(false);
@@ -247,16 +248,20 @@ const AdminDashboard = () => {
         body: JSON.stringify({ 
           name: newEventName, 
           startTime: startTimeDate.toISOString(), 
-          unlockTime: unlockTimeDate.toISOString() 
+          unlockTime: unlockTimeDate.toISOString(),
+          duplicateFromId: duplicateEventId
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create event');
-      setEvents([...events, data].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()));
+      
       setNewEventName('');
       setNewEventStartTime('');
       setNewEventDuration('');
-      alert('活動建立成功！');
+      setDuplicateEventId(null);
+      const eventsRes = await fetch('/api/admin/events');
+      setEvents(await eventsRes.json());
+      alert(duplicateEventId ? '活動複製成功！' : '活動新增成功！');
     } catch (e: any) {
       alert(e.message);
     }
@@ -276,6 +281,14 @@ const AdminDashboard = () => {
     } catch (e: any) {
       alert(e.message);
     }
+  };
+
+  const handlePrepareDuplicate = (event: any) => {
+    setNewEventName(event.name + ' (複製)');
+    setDuplicateEventId(event.id);
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    alert(`已載入「${event.name}」的資料。請設定新場次的開始時間與時長，然後點擊「建立」完成複製！`);
   };
 
   const fetchEventsHelper = async () => {
@@ -672,11 +685,15 @@ const AdminDashboard = () => {
         <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', color: 'white' }}>即將到來的活動</h2>
         
         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '2rem' }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--accent-primary)' }}>手動建立活動 (代替爬蟲)</h3>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: duplicateEventId ? 'var(--accent-primary)' : 'var(--accent-primary)' }}>
+            {duplicateEventId ? '一鍵複製活動 (繼承卡片與角色)' : '手動建立活動 (代替爬蟲)'}
+          </h3>
           <form onSubmit={handleCreateEvent} style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 200px' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>活動名稱</label>
-              <input type="text" value={newEventName} onChange={e => setNewEventName(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="電影/活動名稱" />
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: duplicateEventId ? 'var(--accent-primary)' : '#fff' }}>
+                {duplicateEventId ? '新活動名稱 (複製模式)' : '活動名稱'}
+              </label>
+              <input type="text" value={newEventName} onChange={e => setNewEventName(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: duplicateEventId ? '1px solid var(--accent-primary)' : '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="電影/活動名稱" />
             </div>
             <div style={{ flex: '1 1 200px' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>開始時間</label>
@@ -686,9 +703,14 @@ const AdminDashboard = () => {
               <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem' }}>活動時長 (分鐘)</label>
               <input type="number" min="1" value={newEventDuration} onChange={e => setNewEventDuration(e.target.value)} required style={{ width: '100%', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px' }} placeholder="例如：120" />
             </div>
-            <button type="submit" style={{ flex: '0 0 auto', padding: '0.6rem 1.5rem', background: 'var(--accent-primary)', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer', height: '39px' }}>
-              建立
+            <button type="submit" style={{ flex: '0 0 auto', padding: '0.6rem 1.5rem', background: duplicateEventId ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.1)', color: duplicateEventId ? 'black' : '#fff', border: duplicateEventId ? 'none' : '1px solid rgba(255,255,255,0.3)', fontWeight: 'bold', borderRadius: '4px', cursor: 'pointer', height: '39px' }}>
+              {duplicateEventId ? '確認複製並建立' : '建立'}
             </button>
+            {duplicateEventId && (
+              <button type="button" onClick={() => { setDuplicateEventId(null); setNewEventName(''); }} style={{ flex: '0 0 auto', padding: '0.6rem 1.5rem', background: 'rgba(255, 255, 255, 0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', fontWeight: 'bold', borderRadius: '4px', cursor: 'pointer', height: '39px' }}>
+                取消
+              </button>
+            )}
           </form>
         </div>
 
@@ -709,6 +731,9 @@ const AdminDashboard = () => {
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', width: '100%', justifyContent: 'flex-start' }}>
                     <button onClick={() => handleDeleteEvent(event.id)} style={{ flex: '1 1 80px', minWidth: '80px', background: 'rgba(255, 60, 60, 0.2)', border: '1px solid #ff3c3c', color: '#ff3c3c', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
                       刪除
+                    </button>
+                    <button onClick={() => handlePrepareDuplicate(event)} style={{ flex: '1 1 80px', minWidth: '80px', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255,255,255,0.5)', color: '#fff', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                      複製
                     </button>
                     <button onClick={() => handleStartKiosk(event.id, event.venueId)} style={{ flex: '1 1 120px', minWidth: '120px', background: 'rgba(0, 163, 255, 0.2)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', textAlign: 'center' }}>
                       啟動數位看板
