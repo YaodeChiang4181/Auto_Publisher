@@ -304,12 +304,12 @@ export default async function adminRoutes(server: FastifyInstance) {
     return { success: true };
   });
 
-  // 手動新增活動 (替代爬蟲)
+  // 手動新增活動 (替代爬蟲) 或 複製活動
   server.post('/events', { preValidation: [server.authenticate] }, async (request, reply) => {
     const user = request.user as any;
     if (!user.venueId) return reply.status(403).send({ error: 'Not associated with a venue' });
 
-    const { name, startTime, unlockTime } = request.body as any;
+    const { name, startTime, unlockTime, duplicateFromId } = request.body as any;
     if (!name || !startTime || !unlockTime) {
       return reply.status(400).send({ error: 'Missing required fields' });
     }
@@ -333,6 +333,40 @@ export default async function adminRoutes(server: FastifyInstance) {
         gmControlToken
       }
     });
+
+    // 處理複製邏輯 (Duplicate)
+    if (duplicateFromId) {
+      // 1. 拷貝 PushContent (官方卡片)
+      const sourceContents = await prisma.pushContent.findMany({ where: { eventId: duplicateFromId } });
+      if (sourceContents.length > 0) {
+        await prisma.pushContent.createMany({
+          data: sourceContents.map(c => ({
+            eventId: newEvent.id,
+            title: c.title,
+            contentUrl: c.contentUrl,
+            merchLink: c.merchLink,
+            couponCode: c.couponCode,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }))
+        });
+      }
+
+      // 2. 拷貝 EventCharacter (專屬角色資料)
+      const sourceCharacters = await prisma.eventCharacter.findMany({ where: { eventId: duplicateFromId } });
+      if (sourceCharacters.length > 0) {
+        await prisma.eventCharacter.createMany({
+          data: sourceCharacters.map(c => ({
+            eventId: newEvent.id,
+            name: c.name,
+            bindingCode: c.bindingCode,
+            textEnding: c.textEnding,
+            fileUrl: c.fileUrl,
+            boundLineId: null // 強制重置為未綁定
+          }))
+        });
+      }
+    }
 
     // ==========================================
     // [Feature] 排程喚醒 (QStash Scheduling)
